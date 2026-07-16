@@ -221,6 +221,7 @@ class ProviderImageRequest(BaseModel):
     reference_image_url: str | None = None
     framing: str | None = None
     subject_position: str | None = None
+    framing_target: str | None = None
     image_delta: str | None = None
 
 

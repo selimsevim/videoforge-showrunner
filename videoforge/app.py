@@ -15,7 +15,7 @@ from .consistency import repair_plan_consistency
 from .db import Database
 from .jobs import JobRunner
 from .planner import DEMO_PROMPT
-from .prompting import compile_image_prompt, prompt_hash
+from .prompting import compile_image_prompt, first_frame_target, prompt_hash
 from .providers import MockShowrunnerProvider, QwenCloudProvider, ShowrunnerProvider
 from .schemas import (
     GenerationConfirmation,
@@ -270,6 +270,7 @@ def create_app(
             reference_image_url=reference_image_url,
             framing=planned_shot.framing,
             subject_position=planned_shot.subject_position,
+            framing_target=first_frame_target(planned_shot),
             image_delta=planned_shot.image_delta,
         )
         return database.create_job(

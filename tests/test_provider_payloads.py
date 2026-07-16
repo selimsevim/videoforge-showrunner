@@ -183,6 +183,84 @@ def test_normalized_crop_preserves_output_size(tmp_path) -> None:
         assert result.size == (1920, 1080)
 
 
+def test_provider_image_request_tracks_visual_target_separately_from_body() -> None:
+    request = ProviderImageRequest(
+        project_id="project-test",
+        shot_id="shot-05",
+        prompt="Over the shoulder toward the held print.",
+        negative_prompt="wide room",
+        seed=5,
+        framing="Over-the-shoulder",
+        subject_position="standing beside the bed",
+        framing_target="Elena's shoulder and the Polaroid",
+    )
+    assert request.subject_position == "standing beside the bed"
+    assert request.framing_target == "Elena's shoulder and the Polaroid"
+
+
+def test_framing_gate_uses_visual_target_and_rechecks_crop(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+
+    class StubClient:
+        def __init__(self) -> None:
+            self.calls = []
+            self.responses = [
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    '{"compliant":false,"reason":"too wide",'
+                                    '"targetBox":[300,300,700,700],'
+                                    '"cropBox":[250,250,750,531.25]}'
+                                )
+                            }
+                        }
+                    ]
+                },
+                {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    '{"compliant":true,"reason":"target dominates",'
+                                    '"targetBox":[150,120,850,880],"cropBox":null}'
+                                )
+                            }
+                        }
+                    ]
+                },
+            ]
+
+        def request_json(self, *args, **kwargs):
+            self.calls.append((args, kwargs))
+            return self.responses.pop(0)
+
+    provider.client = StubClient()
+    path = tmp_path / "frame.png"
+    Image.new("RGB", (1920, 1080), "black").save(path)
+    request = ProviderImageRequest(
+        project_id="project-test",
+        shot_id="shot-03",
+        prompt="Detail frame.",
+        negative_prompt="wide room",
+        seed=8,
+        framing="Insert/detail",
+        subject_position="standing beside the bed",
+        framing_target="The Polaroid on the bedsheet",
+    )
+    decision = provider._framing_check(request, path)
+    first_prompt = provider.client.calls[0][1]["json"]["messages"][0]["content"][0]["text"]
+    second_prompt = provider.client.calls[1][1]["json"]["messages"][0]["content"][0]["text"]
+    assert decision["postProcessed"] is True
+    assert decision["cropVerification"]["compliant"] is True
+    assert "The Polaroid on the bedsheet" in first_prompt
+    assert "3.5 by 4.25 inch print" in first_prompt
+    assert "already been cropped once" in second_prompt
+
+
 def test_qwen_consistency_output_normalizes_percent_scores_and_text_warnings() -> None:
     normalized = QwenCloudProvider._normalize_consistency_raw(
         {

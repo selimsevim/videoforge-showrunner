@@ -467,15 +467,72 @@ class QwenCloudProvider(ShowrunnerProvider):
     def _framing_check(
         self, request: ProviderImageRequest, output_path: Path
     ) -> dict[str, Any] | None:
-        if not request.framing or not request.subject_position:
+        target = request.framing_target or request.subject_position
+        if not request.framing or not target:
             return None
         family = framing_family(request.framing)
-        if family in {"wide", "medium", "other"}:
+        if family in {"wide", "other"}:
             return None
+        decision = self._inspect_framing(
+            request, output_path, family=family, target=target, allow_crop=True
+        )
+        if decision["compliant"]:
+            decision["cropBox"] = None
+            decision["postProcessed"] = False
+            return decision
+        crop_box = decision["cropBox"]
+        if not self._valid_crop_box(crop_box):
+            raise ProviderError(
+                f"Generated {request.shot_id} violates its {family} framing contract and "
+                f"cannot be corrected by cropping: {decision['reason']}",
+                code="FRAMING_VALIDATION_FAILED",
+            )
+        self._apply_normalized_crop(output_path, crop_box)
+        verification = self._inspect_framing(
+            request, output_path, family=family, target=target, allow_crop=False
+        )
+        if not verification["compliant"]:
+            raise ProviderError(
+                f"Generated {request.shot_id} still violates its {family} framing contract "
+                f"after the proposed crop: {verification['reason']}",
+                code="FRAMING_VALIDATION_FAILED",
+            )
+        decision["postProcessed"] = True
+        decision["cropVerification"] = verification
+        return decision
+
+    def _inspect_framing(
+        self,
+        request: ProviderImageRequest,
+        output_path: Path,
+        *,
+        family: str,
+        target: str,
+        allow_crop: bool,
+    ) -> dict[str, Any]:
         mime = mimetypes.guess_type(output_path)[0] or "image/png"
         encoded = base64.b64encode(output_path.read_bytes()).decode("ascii")
-        contract = framing_visibility_contract(
-            request.framing, request.subject_position
+        contract = framing_visibility_contract(request.framing or "", target)
+        prop_scale_rule = (
+            " If the named target is a Polaroid, photo, or photograph, it must be exactly one "
+            "physical 3.5 by 4.25 inch print with correct perspective and contact with the "
+            "declared hand or surface. Its width may not exceed two visible adult palm widths. "
+            "Reject a floating graphic, inset picture, duplicated print, body-sized print, or "
+            "full-frame overlay even when the subject inside the print is correct."
+            if re.search(r"\b(polaroid|photo|photograph)\b", target, re.IGNORECASE)
+            else ""
+        )
+        crop_instruction = (
+            "If the current frame violates the contract but a tight 16:9 crop of existing "
+            "pixels can satisfy every requirement, return that crop. The crop must contain the "
+            "entire named target, exclude every prohibited element, and make the target dominate. "
+            "For over-the-shoulder coverage, a valid crop must retain both the foreground shoulder "
+            "or back and the eyeline target. If the named target is missing, return cropBox null."
+            if allow_crop
+            else (
+                "This image has already been cropped once. Do not propose another crop; return "
+                "cropBox null and mark compliant false if any requirement still fails."
+            )
         )
         content: list[dict[str, Any]] = [
             {
@@ -487,11 +544,9 @@ class QwenCloudProvider(ShowrunnerProvider):
                     "targetBox and cropBox (each null or [left, top, right, bottom] in normalized "
                     "0..1000 coordinates). targetBox must tightly locate the named visual target "
                     "whenever it exists, even when no compliant crop seems possible. "
-                    "If the current frame violates the contract but a tight 16:9 crop of existing "
-                    "pixels can satisfy it, return that crop. The crop must contain the named "
-                    "target, exclude every prohibited person/body/room element, and make the "
-                    "target dominate the result. Otherwise return cropBox null. "
-                    f"FRAMING CONTRACT: {contract}. SHOT DIRECTION: {request.image_delta or ''}"
+                    f"{crop_instruction} "
+                    f"FRAMING CONTRACT: {contract}.{prop_scale_rule} "
+                    f"SHOT DIRECTION: {request.image_delta or ''}"
                 ),
             },
             {
@@ -516,27 +571,6 @@ class QwenCloudProvider(ShowrunnerProvider):
             "cropBox": raw.get("cropBox"),
             "family": family,
         }
-        if decision["compliant"]:
-            decision["cropBox"] = None
-            decision["postProcessed"] = False
-            return decision
-        crop_box = decision["cropBox"]
-        if not self._valid_crop_box(crop_box) and family in {
-            "close",
-            "detail",
-            "over-shoulder",
-        }:
-            crop_box = decision["targetBox"]
-            decision["cropBox"] = crop_box
-            decision["fallbackCrop"] = True
-        if not self._valid_crop_box(crop_box):
-            raise ProviderError(
-                f"Generated {request.shot_id} violates its {family} framing contract and "
-                f"cannot be corrected by cropping: {decision['reason']}",
-                code="FRAMING_VALIDATION_FAILED",
-            )
-        self._apply_normalized_crop(output_path, crop_box)
-        decision["postProcessed"] = True
         return decision
 
     @staticmethod
