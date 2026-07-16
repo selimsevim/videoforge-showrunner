@@ -13,7 +13,7 @@ from videoforge.cinematography import (
 from videoforge.config import Settings
 from videoforge.consistency import repair_plan_consistency, validate_plan_consistency
 from videoforge.planner import DEMO_PROMPT, create_mock_plan, deterministic_seed
-from videoforge.prompting import immutable_bible_text, prompt_hash
+from videoforge.prompting import compile_image_prompt, immutable_bible_text, prompt_hash
 from videoforge.retry import is_retryable_error
 from videoforge.schemas import ProductionPlan, ProductionStage, ProjectInput
 from videoforge.state_machine import can_transition, require_transition
@@ -53,6 +53,21 @@ def test_prompt_compiler_reuses_immutable_bible_verbatim() -> None:
     assert all("SHOT_PROP_STATE_AT_START:" in shot.image_prompt for shot in production.shots)
     assert all("FRAME_VISIBILITY_CONTRACT:" in shot.image_prompt for shot in production.shots)
     assert len({shot.image_prompt for shot in production.shots}) == len(production.shots)
+
+
+def test_prop_bible_is_withheld_when_first_frame_has_no_prop() -> None:
+    production = plan()
+    shot = production.shots[0]
+    no_prop_state = shot.start_state.rsplit("| PROP:", 1)[0] + "| PROP: none"
+    no_prop = shot.model_copy(
+        update={"start_state": no_prop_state, "prop_state": "none"}
+    )
+    absent_prompt = compile_image_prompt(production.visual_bible, no_prop)
+    visible_prompt = compile_image_prompt(production.visual_bible, shot)
+    assert "PROP_BIBLE:" not in absent_prompt
+    assert "ABSENT_PROP_CONSTRAINT:" in absent_prompt
+    assert "PROP_BIBLE:" in visible_prompt
+    assert "VISIBLE_PROP_CONSTRAINT:" in visible_prompt
 
 
 def test_motion_prompt_is_one_action_with_explicit_state_handoff() -> None:
