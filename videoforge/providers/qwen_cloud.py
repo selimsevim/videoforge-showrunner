@@ -620,8 +620,16 @@ class QwenCloudProvider(ShowrunnerProvider):
         prop_scale_rule = (
             " If the named target is a Polaroid, photo, or photograph, it must be exactly one "
             "physical 3.5 by 4.25 inch print with correct perspective and contact with the "
-            "declared hand or surface. Its width may not exceed two visible adult palm widths. "
-            "Reject a floating graphic, inset picture, duplicated print, body-sized print, or "
+            "declared hand or surface. "
+            + (
+                "Because this is a detail shot, the nearby camera may make the physical print "
+                "fill much of the screen. Judge its reality from visible card edges, perspective, "
+                "contact shadow, and supporting-surface texture; do not reject it merely for its "
+                "apparent screen size when no hand provides scale. "
+                if family == "detail"
+                else "When an adult hand is visible, its width may not exceed two palm widths. "
+            )
+            + "Reject a floating graphic, inset picture, duplicated print, body-sized print, or "
             "full-frame overlay even when the subject inside the print is correct. A face or body "
             "printed inside the physical card is explicitly allowed and must not be mistaken for "
             "a live person outside the card. A realistic tilt and a narrow area of supporting "

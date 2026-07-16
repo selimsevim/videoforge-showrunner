@@ -291,6 +291,7 @@ def test_framing_gate_uses_visual_target_and_rechecks_crop(monkeypatch, tmp_path
     assert decision["cropVerification"]["compliant"] is True
     assert "The Polaroid on the bedsheet" in first_prompt
     assert "3.5 by 4.25 inch print" in first_prompt
+    assert "nearby camera may make the physical print" in first_prompt
     assert "already been cropped once" in second_prompt
 
 
