@@ -68,9 +68,14 @@ def compile_image_prompt(bible: VisualBible, shot: ShotPlan) -> str:
     target = first_frame_target(shot)
     absent_prop = prop_is_absent(shot.prop_state)
     optional_prop_bible = "" if absent_prop else f"\n{prop_bible_text(bible)}"
+    image_start_state = (
+        shot.start_state.rsplit("| PROP:", 1)[0].rstrip()
+        if absent_prop
+        else shot.start_state
+    )
     prop_constraint = (
-        "ABSENT_PROP_CONSTRAINT: No photograph, Polaroid, instant-photo border, card, "
-        "paper, inset picture, or floating image may appear anywhere in this frame."
+        "EMPTY_FRAME_CONSTRAINT: Keep every visible furniture surface bare. Add no loose "
+        "objects, graphic elements, or inset imagery."
         if absent_prop
         else (
             "VISIBLE_PROP_CONSTRAINT: Keep the declared prop at realistic hand-held scale. "
@@ -81,11 +86,15 @@ def compile_image_prompt(bible: VisualBible, shot: ShotPlan) -> str:
         f"STORYBOARD_SHOT: {shot.id}; beat {shot.order}",
         f"SHOT_COMPOSITION: {shot.framing}; {shot.camera_angle}; {shot.subject_position}",
         f"SHOT_FIRST_FRAME_TARGET: {target}",
-        f"SHOT_START_STATE: {shot.start_state}",
-        f"SHOT_PROP_STATE_AT_START: {shot.prop_state}",
+        f"SHOT_START_STATE: {image_start_state}",
+        (
+            "SHOT_SURFACE_STATE: Every visible furniture surface is bare and empty."
+            if absent_prop
+            else f"SHOT_PROP_STATE_AT_START: {shot.prop_state}"
+        ),
         (
             "SHOT_FIRST_FRAME_DIRECTION: Render only the declared composition, "
-            "SHOT_START_STATE, and SHOT_PROP_STATE_AT_START."
+            "SHOT_START_STATE and the declared visible surface or prop state."
         ),
         prop_constraint,
         "FRAME_VISIBILITY_CONTRACT: "
@@ -97,11 +106,10 @@ def compile_image_prompt(bible: VisualBible, shot: ShotPlan) -> str:
             "default to a seated portrait. Preserve the "
             "locked character and room while making this shot visibly distinct from the "
             "other storyboard beats. SHOT_COMPOSITION overrides bible context visibility: "
-            "anything declared off-screen must not appear. SHOT_PROP_STATE_AT_START is the "
-            "only authority for prop presence and visibility. For an insert, detail, macro, or "
+            "anything declared off-screen must not appear. The declared surface or prop state "
+            "is the only authority for object presence and visibility. For an insert, detail, macro, or "
             "extreme close-up, show only the specified object or body region—no full face, "
-            "full body, or wide room. If SHOT_PROP_STATE_AT_START says absent or not visible, do not "
-            "render the important prop anywhere."
+            "full body, or wide room. When surfaces are declared empty, keep them empty."
         ),
     )
     return (

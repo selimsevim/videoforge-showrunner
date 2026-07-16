@@ -50,7 +50,11 @@ def test_prompt_compiler_reuses_immutable_bible_verbatim() -> None:
     assert all("SHOT_FRAMING_REASON:" not in shot.image_prompt for shot in production.shots)
     assert all("SHOT_ACTION_AFTER_FIRST_FRAME:" not in shot.image_prompt for shot in production.shots)
     assert all("SHOT_END_STATE_DO_NOT_SHOW_YET:" not in shot.image_prompt for shot in production.shots)
-    assert all("SHOT_PROP_STATE_AT_START:" in shot.image_prompt for shot in production.shots)
+    assert all(
+        "SHOT_PROP_STATE_AT_START:" in shot.image_prompt
+        or "SHOT_SURFACE_STATE:" in shot.image_prompt
+        for shot in production.shots
+    )
     assert all("FRAME_VISIBILITY_CONTRACT:" in shot.image_prompt for shot in production.shots)
     assert len({shot.image_prompt for shot in production.shots}) == len(production.shots)
 
@@ -65,7 +69,9 @@ def test_prop_bible_is_withheld_when_first_frame_has_no_prop() -> None:
     absent_prompt = compile_image_prompt(production.visual_bible, no_prop)
     visible_prompt = compile_image_prompt(production.visual_bible, shot)
     assert "PROP_BIBLE:" not in absent_prompt
-    assert "ABSENT_PROP_CONSTRAINT:" in absent_prompt
+    assert "EMPTY_FRAME_CONSTRAINT:" in absent_prompt
+    assert "Polaroid" not in absent_prompt
+    assert "photograph" not in absent_prompt.casefold()
     assert "PROP_BIBLE:" in visible_prompt
     assert "VISIBLE_PROP_CONSTRAINT:" in visible_prompt
 
