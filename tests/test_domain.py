@@ -8,6 +8,7 @@ from videoforge.cinematography import (
     cinematography_issues,
     framing_family,
     framing_visibility_contract,
+    practical_motion_issues,
 )
 from videoforge.config import Settings
 from videoforge.consistency import repair_plan_consistency, validate_plan_consistency
@@ -44,10 +45,43 @@ def test_prompt_compiler_reuses_immutable_bible_verbatim() -> None:
     prefix = immutable_bible_text(production.visual_bible)
     assert all(shot.image_prompt.startswith(prefix + "\n") for shot in production.shots)
     assert all("SHOT_COMPOSITION:" in shot.image_prompt for shot in production.shots)
-    assert all("SHOT_SUBJECT_ACTION:" in shot.image_prompt for shot in production.shots)
+    assert all("SHOT_START_STATE:" in shot.image_prompt for shot in production.shots)
+    assert all("SHOT_ACTION_AFTER_FIRST_FRAME:" in shot.image_prompt for shot in production.shots)
+    assert all("SHOT_END_STATE_DO_NOT_SHOW_YET:" in shot.image_prompt for shot in production.shots)
     assert all("SHOT_PROP_STATE:" in shot.image_prompt for shot in production.shots)
     assert all("FRAME_VISIBILITY_CONTRACT:" in shot.image_prompt for shot in production.shots)
     assert len({shot.image_prompt for shot in production.shots}) == len(production.shots)
+
+
+def test_motion_prompt_is_one_action_with_explicit_state_handoff() -> None:
+    production = plan()
+    first, second = production.shots[:2]
+    assert f"ACTION: {first.subject_action}" in first.motion_prompt
+    assert first.motion_prompt.count(first.subject_action) == 1
+    assert "No additional gestures" in first.motion_prompt
+    assert first.end_state == second.start_state
+    assert practical_motion_issues(production) == []
+
+
+def test_practical_motion_validator_rejects_poetic_or_multi_action_direction() -> None:
+    production = plan()
+    broken_first = production.shots[0].model_copy(
+        update={
+            "subject_action": (
+                "Mara lifts the pillow while fabric rustles and dust motes drift through a light beam"
+            ),
+            "environment_motion": "Dust motes drift faintly.",
+            "camera_motion": "Static with a micro-adjustment and rack focus.",
+        }
+    )
+    broken = production.model_copy(
+        update={"shots": [broken_first, *production.shots[1:]]}
+    )
+    issues = practical_motion_issues(broken)
+    assert any("poetic, sonic, or micro-atmospheric" in issue for issue in issues)
+    assert any("multiple actions" in issue for issue in issues)
+    assert any("nonessential environment motion" in issue for issue in issues)
+    assert any("impractical camera" in issue for issue in issues)
 
 
 def test_visibility_contract_enforces_actual_crop_without_prescribing_order() -> None:

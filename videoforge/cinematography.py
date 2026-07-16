@@ -99,4 +99,72 @@ def cinematography_issues(plan: ProductionPlan) -> list[str]:
     deltas = [shot.image_delta.strip().lower() for shot in plan.shots]
     if len(set(deltas)) != len(deltas):
         issues.append("two or more image directions are duplicates")
+    issues.extend(practical_motion_issues(plan))
+    return issues
+
+
+def practical_motion_issues(plan: ProductionPlan) -> list[str]:
+    """Reject poetic motion prose that cannot be executed as one clear screen action."""
+    issues: list[str] = []
+    banned = re.compile(
+        r"\b(audibly|faintly|rustl\w*|dust motes?|light beam|recognition|realiz\w*|"
+        r"remember\w*|cognitive|dissonance|atmosphere|imperceptibly|micro[- ]?adjust\w*|"
+        r"rack focus|focus shift|breath catches?)\b",
+        re.IGNORECASE,
+    )
+    complex_connectors = re.compile(
+        r"\b(while|then|after|before|simultaneously|as she|as he|as they)\b|[;—]",
+        re.IGNORECASE,
+    )
+    camera_banned = re.compile(
+        r"\b(rack focus|focus shift|micro|settle|orbit|shake|handheld|zoom)\b",
+        re.IGNORECASE,
+    )
+
+    for shot in plan.shots:
+        missing = [
+            name
+            for name, value in (
+                ("primarySubject", shot.primary_subject),
+                ("framingReason", shot.framing_reason),
+                ("startState", shot.start_state),
+                ("endState", shot.end_state),
+            )
+            if not value.strip()
+        ]
+        if missing:
+            issues.append(f"{shot.id} is missing practical fields: {', '.join(missing)}")
+        if len(shot.subject_action.split()) > 18:
+            issues.append(f"{shot.id} subjectAction exceeds 18 words")
+        if banned.search(
+            " ".join(
+                (shot.subject_action, shot.environment_motion, shot.camera_motion)
+            )
+        ):
+            issues.append(f"{shot.id} contains poetic, sonic, or micro-atmospheric motion")
+        if complex_connectors.search(shot.subject_action):
+            issues.append(f"{shot.id} combines multiple actions instead of one physical action")
+        if shot.subject_action.strip().casefold().rstrip(".") in (
+            shot.start_state + " " + shot.end_state
+        ).casefold():
+            issues.append(
+                f"{shot.id} repeats subjectAction inside a state instead of describing positions"
+            )
+        if shot.environment_motion.strip().lower().rstrip(".") not in {
+            "none",
+            "room remains still",
+            "environment remains still",
+        }:
+            issues.append(f"{shot.id} adds nonessential environment motion")
+        if camera_banned.search(shot.camera_motion):
+            issues.append(f"{shot.id} uses an impractical camera or focus instruction")
+
+    for previous, current in zip(plan.shots, plan.shots[1:]):
+        if (
+            previous.end_state.strip().casefold()
+            != current.start_state.strip().casefold()
+        ):
+            issues.append(
+                f"{previous.id} endState must exactly equal {current.id} startState"
+            )
     return issues

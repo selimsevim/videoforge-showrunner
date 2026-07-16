@@ -33,15 +33,21 @@ def compile_image_prompt(bible: VisualBible, shot: ShotPlan) -> str:
     shot_blocks = (
         f"STORYBOARD_SHOT: {shot.id}; beat {shot.order}; {shot.narrative_purpose}",
         f"SHOT_COMPOSITION: {shot.framing}; {shot.camera_angle}; {shot.subject_position}",
-        f"SHOT_SUBJECT_ACTION: {shot.subject_action}",
+        f"SHOT_PRIMARY_SUBJECT: {shot.primary_subject}",
+        f"SHOT_FRAMING_REASON: {shot.framing_reason}",
+        f"SHOT_START_STATE: {shot.start_state}",
+        f"SHOT_ACTION_AFTER_FIRST_FRAME: {shot.subject_action}",
+        f"SHOT_END_STATE_DO_NOT_SHOW_YET: {shot.end_state}",
         f"SHOT_ENVIRONMENT_STATE: {shot.environment_state}",
         f"SHOT_PROP_STATE: {shot.prop_state}",
         f"SHOT_IMAGE_DELTA: {shot.image_delta}",
         "FRAME_VISIBILITY_CONTRACT: "
         + framing_visibility_contract(shot.framing, shot.subject_position),
         (
-            "HARD_SHOT_CONSTRAINT: Render this exact storyboard beat, composition, pose, "
-            "action, and prop placement. Do not default to a seated portrait. Keep the "
+            "HARD_SHOT_CONSTRAINT: This keyframe is the first frame of a video. Render the "
+            "exact SHOT_START_STATE immediately before the action begins. Do not depict the "
+            "action in progress and do not reveal SHOT_END_STATE_DO_NOT_SHOW_YET. Do not "
+            "default to a seated portrait. Keep the "
             "important prop at realistic hand-held scale; never enlarge it. Preserve the "
             "locked character and room while making this shot visibly distinct from the "
             "other storyboard beats. SHOT_COMPOSITION overrides bible context visibility: "
@@ -54,16 +60,17 @@ def compile_image_prompt(bible: VisualBible, shot: ShotPlan) -> str:
     return f"{immutable_bible_text(bible)}\n" + "\n".join(shot_blocks)
 
 
-def compile_motion_prompt(
-    subject_motion: str, environment_motion: str, camera_motion: str
-) -> str:
+def compile_motion_prompt(shot: ShotPlan) -> str:
     return " ".join(
-        part.strip().rstrip(".") + "."
-        for part in (
-            subject_motion,
-            environment_motion,
-            camera_motion,
-            "Preserve facial identity, wardrobe, prop design, lighting, and room geometry",
+        (
+            f"FRAMING: {shot.framing} of {shot.primary_subject}.",
+            f"START: {shot.start_state.rstrip('.')}.",
+            f"ACTION: {shot.subject_action.rstrip('.')}.",
+            f"END: {shot.end_state.rstrip('.')}.",
+            f"CAMERA: {shot.camera_motion.rstrip('.')}.",
+            "Perform the action once. No additional gestures, prop movement, particles, "
+            "atmospheric effects, dialogue, or new objects.",
+            "Preserve facial identity, wardrobe, prop design, lighting, and room geometry.",
         )
     )
 
@@ -72,9 +79,7 @@ def compile_shot(bible: VisualBible, shot: ShotPlan) -> ShotPlan:
     return shot.model_copy(
         update={
             "image_prompt": compile_image_prompt(bible, shot),
-            "motion_prompt": compile_motion_prompt(
-                shot.subject_action, shot.environment_motion, shot.camera_motion
-            ),
+            "motion_prompt": compile_motion_prompt(shot),
         }
     )
 

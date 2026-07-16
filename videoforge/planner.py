@@ -78,10 +78,14 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 framing="medium-wide shot",
                 angle="eye level",
                 position="Mara stands right of centre beside the window",
-                action="Mara lowers her gaze toward the Polaroid on the floor",
+                action="Mara crouches beside the Polaroid on the floor",
+                end=(
+                    "Mara crouches beside the Polaroid with her right hand above it; "
+                    "her left hand rests on her knee"
+                ),
                 state="bedroom geometry is fully established; Polaroid lies face-up by her foot",
-                env_motion="The sheer curtain moves almost imperceptibly",
-                camera="Fixed camera",
+                env_motion="None.",
+                camera="Static camera.",
                 prop="Polaroid face-up on the floor, its image not yet readable",
                 delta=(
                     "medium-wide establishing shot, Mara right of centre beside the window, "
@@ -94,10 +98,14 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 framing="tight medium close-up",
                 angle="slight over-shoulder angle",
                 position="Mara fills the left half of frame; photograph held near her face",
-                action="Mara slowly raises the Polaroid and focuses on its image",
+                action="Mara lifts the Polaroid to eye level with her right hand",
+                end=(
+                    "Mara holds the Polaroid at eye level in her right hand; her left hand "
+                    "rests on her knee"
+                ),
                 state="same bedroom falls softly out of focus behind her",
-                env_motion="The curtain settles; the room is otherwise still",
-                camera="Very slow five-percent push-in",
+                env_motion="None.",
+                camera="Slow push-in.",
                 prop=(
                     "the same Polaroid is upright in her right hand and visibly shows Mara "
                     "asleep on the same bed"
@@ -114,9 +122,13 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 angle="eye level",
                 position="Mara foreground left; dark doorway occupies background right",
                 action="Mara slowly turns her head toward the dark doorway",
+                end=(
+                    "Mara faces the dark doorway while holding the Polaroid at eye level "
+                    "in her right hand"
+                ),
                 state="same room and lighting; doorway remains empty and nearly black",
-                env_motion="The curtain lifts once in a faint inward draft",
-                camera="Fixed camera with no rotation",
+                env_motion="None.",
+                camera="Static camera.",
                 prop=(
                     "the same Polaroid remains in her raised right hand; inside its image, "
                     "one indistinct human silhouette now stands behind the sleeping Mara"
@@ -162,9 +174,13 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 angle="eye level",
                 position="protagonist slightly right of centre",
                 action="The protagonist notices the object",
+                end=(
+                    "The protagonist looks at the object on the table with both hands "
+                    "at their sides"
+                ),
                 state="room geography clearly established",
-                env_motion="A curtain shifts slightly",
-                camera="Fixed camera",
+                env_motion="None.",
+                camera="Static camera.",
                 prop="object rests on a nearby table",
                 delta="medium-wide discovery composition with the object clearly visible",
             ),
@@ -173,10 +189,14 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 framing="medium close-up",
                 angle="eye level",
                 position="protagonist centred with object in foreground",
-                action="The protagonist lifts and studies the object",
+                action="The protagonist lifts the object to eye level",
+                end=(
+                    "The protagonist holds the object at eye level in one hand; the other "
+                    "hand remains at their side"
+                ),
                 state="same room softly out of focus",
-                env_motion="The room remains still",
-                camera="Slow restrained push-in",
+                env_motion="None.",
+                camera="Slow push-in.",
                 prop="same object held carefully in one hand",
                 delta="medium close-up emphasizing recognition and the unchanged object",
             ),
@@ -186,9 +206,12 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 angle="eye level",
                 position="protagonist foreground left with negative space behind",
                 action="The protagonist turns toward the source of the revelation",
+                end=(
+                    "The protagonist faces the source while holding the object at eye level"
+                ),
                 state="same room and fixed lighting",
-                env_motion="One background detail shifts subtly",
-                camera="Fixed camera",
+                env_motion="None.",
+                camera="Static camera.",
                 prop="same object remains visible and unchanged",
                 delta="medium final reveal composition with controlled negative space",
             ),
@@ -204,10 +227,14 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                     framing="controlled medium close-up",
                     angle="eye level",
                     position="the same protagonist remains centred in the established room",
-                    action="The protagonist registers one additional unsettling detail",
+                    action=f"The protagonist moves one thumb to edge mark {index + 1}",
+                    end=(
+                        "The protagonist holds the same prop at eye level with one thumb "
+                        f"resting at edge mark {index + 1}"
+                    ),
                     state="the same environment and lighting remain unchanged",
-                    env_motion="Only the established curtain moves slightly",
-                    camera="Fixed camera",
+                    env_motion="None.",
+                    camera="Static camera.",
                     prop="the same important prop remains visible with unchanged design",
                     delta=(
                         "controlled bridge composition in the same room, preserving the "
@@ -221,7 +248,13 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
         2, min(5, round(project.target_duration_seconds / project.shot_count))
     )
     shots: list[ShotPlan] = []
+    previous_end = ""
     for index, raw in enumerate(raw_shots[: project.shot_count], 1):
+        start_state = previous_end or (
+            "The protagonist is in the declared position with both hands visible; "
+            f"{raw['prop'].rstrip('.')}"
+        )
+        end_state = raw["end"]
         shots.append(
             ShotPlan(
                 id=f"shot-{index:02d}",
@@ -230,7 +263,13 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 framing=raw["framing"],
                 cameraAngle=raw["angle"],
                 subjectPosition=raw["position"],
+                primarySubject="the protagonist and the important prop",
+                framingReason=(
+                    f"This framing clearly shows the physical action for {raw['purpose'].lower()}."
+                ),
+                startState=start_state,
                 subjectAction=raw["action"],
+                endState=end_state,
                 environmentState=raw["state"],
                 environmentMotion=raw["env_motion"],
                 cameraMotion=raw["camera"],
@@ -243,6 +282,7 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 videoSeed=deterministic_seed(project_id, index, "video"),
             )
         )
+        previous_end = end_state
     shots = compile_all(bible, shots)
     return ProductionPlan(
         projectId=project_id,
