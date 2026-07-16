@@ -234,6 +234,15 @@ def test_normalized_crop_preserves_output_size(tmp_path) -> None:
         assert result.size == (1920, 1080)
 
 
+def test_face_crop_inset_removes_vision_padding() -> None:
+    assert QwenCloudProvider._inset_normalized_box([100, 200, 900, 800], 0.16) == [
+        228.0,
+        296.0,
+        772.0,
+        704.0,
+    ]
+
+
 def test_provider_image_request_tracks_visual_target_separately_from_body() -> None:
     request = ProviderImageRequest(
         project_id="project-test",

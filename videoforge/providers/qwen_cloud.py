@@ -582,6 +582,14 @@ class QwenCloudProvider(ShowrunnerProvider):
             crop_box = decision["targetBox"]
             decision["cropBox"] = crop_box
             decision["targetFallbackCrop"] = True
+        if (
+            self._valid_crop_box(crop_box)
+            and family == "close"
+            and re.search(r"\b(face|facial|eyes|expression)\b", target, re.IGNORECASE)
+        ):
+            crop_box = self._inset_normalized_box(crop_box, 0.16)
+            decision["cropBox"] = crop_box
+            decision["faceTightenedCrop"] = True
         if not self._valid_crop_box(crop_box):
             raise ProviderError(
                 f"Generated {request.shot_id} violates its {family} framing contract and "
@@ -731,6 +739,13 @@ class QwenCloudProvider(ShowrunnerProvider):
             return False
         width, height = right - left, bottom - top
         return width >= 80 and height >= 80
+
+    @staticmethod
+    def _inset_normalized_box(box: list[float], fraction: float) -> list[float]:
+        left, top, right, bottom = (float(item) for item in box)
+        inset_x = (right - left) * fraction
+        inset_y = (bottom - top) * fraction
+        return [left + inset_x, top + inset_y, right - inset_x, bottom - inset_y]
 
     @staticmethod
     def _apply_normalized_crop(path: Path, box: list[float]) -> None:
