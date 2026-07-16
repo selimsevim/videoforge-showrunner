@@ -115,6 +115,18 @@ def test_editorial_recognition_is_allowed_outside_executable_motion() -> None:
     )
 
 
+def test_one_coordinated_physical_gesture_may_use_and() -> None:
+    production = plan()
+    first = production.shots[0].model_copy(
+        update={"subject_action": "Mara bends down and lifts the pillow."}
+    )
+    revised = production.model_copy(update={"shots": [first, *production.shots[1:]]})
+    assert not any(
+        "multiple actions" in issue or "chains more than one" in issue
+        for issue in practical_motion_issues(revised)
+    )
+
+
 def test_visibility_contract_enforces_actual_crop_without_prescribing_order() -> None:
     detail = framing_visibility_contract(
         "Insert/detail", "Only the photograph and two fingertips"

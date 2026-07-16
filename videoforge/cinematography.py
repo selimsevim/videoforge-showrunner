@@ -113,7 +113,7 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
         re.IGNORECASE,
     )
     complex_connectors = re.compile(
-        r"\b(and|while|then|after|before|simultaneously|as she|as he|as they)\b|[;—]",
+        r"\b(while|then|after|before|simultaneously|as she|as he|as they)\b|[;—]",
         re.IGNORECASE,
     )
     camera_banned = re.compile(
@@ -183,6 +183,8 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
             issues.append(f"{shot.id} contains poetic, sonic, or micro-atmospheric motion")
         if complex_connectors.search(shot.subject_action):
             issues.append(f"{shot.id} combines multiple actions instead of one physical action")
+        if len(re.findall(r"\band\b", shot.subject_action, re.IGNORECASE)) > 1:
+            issues.append(f"{shot.id} chains more than one coordinated physical movement")
         if shot.subject_action.strip().casefold().rstrip(".") in (
             shot.start_state + " " + shot.end_state
         ).casefold():
