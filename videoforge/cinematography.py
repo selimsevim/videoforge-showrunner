@@ -112,6 +112,10 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
         r"\b(recognition|realiz\w*|remember\w*|cognitive|dissonance)\b",
         re.IGNORECASE,
     )
+    self_changing_prop = re.compile(
+        r"\b(emerg\w*|develop\w*|materializ\w*|appear\w*|morph\w*|transform\w*)\b",
+        re.IGNORECASE,
+    )
     complex_connectors = re.compile(
         r"\b(while|then|after|before|simultaneously|as she|as he|as they)\b|[;—]",
         re.IGNORECASE,
@@ -179,7 +183,7 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
         )
         if sensory_banned.search(operational_direction) or internal_motion_banned.search(
             executable_direction
-        ):
+        ) or self_changing_prop.search(executable_direction):
             issues.append(f"{shot.id} contains poetic, sonic, or micro-atmospheric motion")
         if complex_connectors.search(shot.subject_action):
             issues.append(f"{shot.id} combines multiple actions instead of one physical action")
@@ -215,6 +219,31 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
                 )
             if normalized(shot.prop_state) != normalized(start_match.group("prop")):
                 issues.append(f"{shot.id} propState must exactly equal startState PROP")
+        if start_match and end_match:
+            start_prop = normalized(start_match.group("prop"))
+            end_prop = normalized(end_match.group("prop"))
+            absent_values = {"none", "absent", "no prop"}
+            if (start_prop in absent_values) != (end_prop in absent_values):
+                issues.append(
+                    f"{shot.id} makes the prop appear or disappear instead of tracking it "
+                    "as concealed or off-screen"
+                )
+            start_hands = normalized(start_match.group("hands"))
+            end_hands = normalized(end_match.group("hands"))
+            prop_terms = re.compile(r"\b(polaroid|photo|photograph|object|prop)\b")
+            pickup_action = re.compile(
+                r"\b(pick\w*|lift\w*|take\w*|grasp\w*|hold\w*|pull\w*)\b"
+                r".{0,30}\b(polaroid|photo|photograph|object|prop)\b",
+                re.IGNORECASE,
+            )
+            if (
+                not prop_terms.search(start_hands)
+                and prop_terms.search(end_hands)
+                and not pickup_action.search(shot.subject_action)
+            ):
+                issues.append(
+                    f"{shot.id} ends with the prop in hand without explicitly picking it up"
+                )
         if normalized(shot.start_state) == normalized(shot.end_state):
             issues.append(f"{shot.id} action does not create a new physical endState")
 

@@ -46,6 +46,8 @@ def test_prompt_compiler_reuses_immutable_bible_verbatim() -> None:
     assert all(shot.image_prompt.startswith(prefix + "\n") for shot in production.shots)
     assert all("SHOT_COMPOSITION:" in shot.image_prompt for shot in production.shots)
     assert all("SHOT_START_STATE:" in shot.image_prompt for shot in production.shots)
+    assert all("SHOT_ENVIRONMENT_STATE:" not in shot.image_prompt for shot in production.shots)
+    assert all("SHOT_FRAMING_REASON:" not in shot.image_prompt for shot in production.shots)
     assert all("SHOT_ACTION_AFTER_FIRST_FRAME:" not in shot.image_prompt for shot in production.shots)
     assert all("SHOT_END_STATE_DO_NOT_SHOW_YET:" not in shot.image_prompt for shot in production.shots)
     assert all("SHOT_PROP_STATE_AT_START:" in shot.image_prompt for shot in production.shots)
@@ -124,6 +126,22 @@ def test_one_coordinated_physical_gesture_may_use_and() -> None:
     assert not any(
         "multiple actions" in issue or "chains more than one" in issue
         for issue in practical_motion_issues(revised)
+    )
+
+
+def test_prop_must_be_tracked_while_concealed_or_off_screen() -> None:
+    production = plan()
+    first = production.shots[0]
+    start = first.start_state.rsplit("| PROP:", 1)[0] + "| PROP: none"
+    end = first.end_state.rsplit("| PROP:", 1)[0] + "| PROP: Polaroid on floor"
+    broken_first = first.model_copy(
+        update={"start_state": start, "end_state": end, "prop_state": "none"}
+    )
+    broken = production.model_copy(
+        update={"shots": [broken_first, *production.shots[1:]]}
+    )
+    assert any(
+        "appear or disappear" in issue for issue in practical_motion_issues(broken)
     )
 
 
