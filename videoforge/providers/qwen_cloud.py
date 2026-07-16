@@ -574,7 +574,14 @@ class QwenCloudProvider(ShowrunnerProvider):
             decision["postProcessed"] = False
             return decision
         crop_box = decision["cropBox"]
-        if (
+        face_target = family == "close" and bool(
+            re.search(r"\b(face|facial|eyes|expression)\b", target, re.IGNORECASE)
+        )
+        if face_target and self._valid_crop_box(decision["targetBox"]):
+            crop_box = self._inset_normalized_box(decision["targetBox"], 0.12)
+            decision["cropBox"] = crop_box
+            decision["faceTargetCrop"] = True
+        elif (
             not self._valid_crop_box(crop_box)
             and family in {"medium", "close", "detail"}
             and self._valid_crop_box(decision["targetBox"])
@@ -582,14 +589,6 @@ class QwenCloudProvider(ShowrunnerProvider):
             crop_box = decision["targetBox"]
             decision["cropBox"] = crop_box
             decision["targetFallbackCrop"] = True
-        if (
-            self._valid_crop_box(crop_box)
-            and family == "close"
-            and re.search(r"\b(face|facial|eyes|expression)\b", target, re.IGNORECASE)
-        ):
-            crop_box = self._inset_normalized_box(crop_box, 0.16)
-            decision["cropBox"] = crop_box
-            decision["faceTightenedCrop"] = True
         if not self._valid_crop_box(crop_box):
             raise ProviderError(
                 f"Generated {request.shot_id} violates its {family} framing contract and "
