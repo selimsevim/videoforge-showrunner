@@ -57,6 +57,12 @@ def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
                 "id": "wrong",
                 "order": 9,
                 "framing": "tight close-up",
+                "subjectPosition": "wrong position",
+                "startState": (
+                    "BODY: Elena stands beside the bed | HANDS: Both hands are still | "
+                    "PROP: The Polaroid lies on the floor"
+                ),
+                "propState": "wrong prop state",
                 "durationSeconds": 9,
                 "imageSeed": -1,
                 "videoSeed": 23,
@@ -97,6 +103,8 @@ def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
     assert normalized["shots"][0]["videoSeed"] == 23
     assert normalized["shots"][0]["imagePrompt"] == "pending compilation"
     assert normalized["shots"][0]["motionPrompt"] == "pending compilation"
+    assert normalized["shots"][0]["subjectPosition"] == "Elena stands beside the bed"
+    assert normalized["shots"][0]["propState"] == "The Polaroid lies on the floor"
 
 
 def test_qwen_image_edit_payload_uses_canonical_reference(monkeypatch) -> None:

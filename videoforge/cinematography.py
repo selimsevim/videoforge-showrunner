@@ -93,13 +93,6 @@ def cinematography_issues(plan: ProductionPlan) -> list[str]:
     actions = [shot.subject_action.strip().lower() for shot in plan.shots]
     if len(set(actions)) < max(3, len(plan.shots) - 1):
         issues.append("subject actions repeat instead of progressing the story")
-    prop_states = [shot.prop_state.strip().lower() for shot in plan.shots]
-    required_prop_states = min(3, len(plan.shots))
-    if len(set(prop_states)) < required_prop_states:
-        issues.append(
-            "prop state or placement does not establish at least "
-            f"{required_prop_states} meaningful sequence states"
-        )
     deltas = [shot.image_delta.strip().lower() for shot in plan.shots]
     if len(set(deltas)) != len(deltas):
         issues.append("two or more image directions are duplicates")

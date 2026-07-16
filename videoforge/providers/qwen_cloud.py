@@ -117,6 +117,17 @@ class QwenCloudProvider(ShowrunnerProvider):
                 shot["motionPrompt"].strip()
             ) < 3:
                 shot["motionPrompt"] = "pending compilation"
+            start_state = shot.get("startState")
+            if isinstance(start_state, str):
+                ledger = re.fullmatch(
+                    r"BODY:\s*(?P<body>.+?)\s*\|\s*HANDS:\s*(?P<hands>.+?)\s*"
+                    r"\|\s*PROP:\s*(?P<prop>.+?)\s*",
+                    start_state.strip(),
+                    re.IGNORECASE,
+                )
+                if ledger:
+                    shot["subjectPosition"] = ledger.group("body")
+                    shot["propState"] = ledger.group("prop")
             seed = shot.get("videoSeed")
             if not isinstance(seed, int) or not 0 <= seed <= 2**31 - 1:
                 shot["videoSeed"] = deterministic_seed(project_id, order, "video")
@@ -212,7 +223,9 @@ class QwenCloudProvider(ShowrunnerProvider):
             )
             plan = ProductionPlan.model_validate(raw)
             issues = cinematography_issues(plan)
-            if issues:
+            for _revision_attempt in range(2):
+                if not issues:
+                    break
                 revision = self.client.request_json(
                     "POST",
                     f"{self.text_base}/chat/completions",
@@ -228,13 +241,13 @@ class QwenCloudProvider(ShowrunnerProvider):
                     project,
                 )
                 plan = ProductionPlan.model_validate(revised_raw)
-                remaining = cinematography_issues(plan)
-                if remaining:
-                    raise ProviderError(
-                        "Qwen's revised plan still lacks cinematographic continuity: "
-                        + "; ".join(remaining),
-                        code="CINEMATOGRAPHY_VALIDATION_FAILED",
-                    )
+                issues = cinematography_issues(plan)
+            if issues:
+                raise ProviderError(
+                    "Qwen's revised plan still lacks cinematographic continuity: "
+                    + "; ".join(issues),
+                    code="CINEMATOGRAPHY_VALIDATION_FAILED",
+                )
             repaired, _ = repair_plan_consistency(plan)
             return repaired
         except (KeyError, IndexError, json.JSONDecodeError, ValidationError) as exc:
