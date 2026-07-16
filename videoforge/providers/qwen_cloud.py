@@ -386,23 +386,43 @@ class QwenCloudProvider(ShowrunnerProvider):
         prompt = request.prompt
         negative_prompt = request.negative_prompt
         visual_target = request.framing_target or ""
-        if re.search(r"\b(hand|hands|finger|fingers|fingertip|fingertips)\b", visual_target, re.IGNORECASE):
+        family = framing_family(request.framing or "")
+        hand_led = bool(
+            re.search(
+                r"\b(hand|hands|finger|fingers|fingertip|fingertips)\b",
+                visual_target,
+                re.IGNORECASE,
+            )
+        ) or family == "over-shoulder"
+        if hand_led:
             negative_prompt += (
                 ", extra fingers, duplicated fingers, fused fingers, malformed hands, "
                 "duplicated hands, wrong jewelry"
+            )
+        if family == "over-shoulder":
+            negative_prompt += (
+                ", second live person, duplicate woman, frontal double, face-to-face two-shot, "
+                "two live women"
             )
         if request.reference_image_url:
             content.append({"image": request.reference_image_url})
             composition_guide = self._composition_guide(request)
             if composition_guide:
                 content.append({"image": composition_guide})
-            family = framing_family(request.framing or "")
             identity_rule = (
                 "Image 1 is the canonical physical-set reference only. The observer must be "
                 "entirely absent because this is a first-person POV: remove the woman, her face, "
                 "hair, torso, legs, and body from the frame. "
                 if family == "pov"
-                else "Image 1 is the canonical continuity reference for the actor and set. "
+                else (
+                    "Image 1 is the canonical continuity reference for the actor and set. This "
+                    "is a single-subject over-the-shoulder shot: the camera is behind Elena's "
+                    "shoulder looking at the photograph she holds. Render exactly one live Elena. "
+                    "Do not place another live woman in front of her. Elena printed inside the "
+                    "physical photograph is explicitly allowed as prop content. "
+                    if family == "over-shoulder"
+                    else "Image 1 is the canonical continuity reference for the actor and set. "
+                )
             )
             if family == "pov":
                 negative_prompt += (

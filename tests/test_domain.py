@@ -258,6 +258,15 @@ def test_photo_detail_contract_allows_printed_subject_but_not_live_actor() -> No
     assert "No live face, live head, live torso" in contract
 
 
+def test_over_shoulder_contract_forbids_a_second_live_copy() -> None:
+    contract = framing_visibility_contract(
+        "Over-the-shoulder", "Elena's shoulder and the Polaroid"
+    )
+    assert "one live person only" in contract
+    assert "Do not add a second live person" in contract
+    assert "printed inside a physical photograph" in contract
+
+
 def test_consistency_guardian_repairs_paraphrased_prompt() -> None:
     production = plan()
     broken = production.model_copy(

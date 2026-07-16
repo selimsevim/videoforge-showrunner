@@ -68,6 +68,29 @@ def test_hand_led_image_payload_adds_anatomy_negative_prompt(monkeypatch) -> Non
     assert "wrong jewelry" in payload["parameters"]["negative_prompt"]
 
 
+def test_over_shoulder_payload_forbids_a_second_live_copy(monkeypatch) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+    payload = provider._image_payload(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-05",
+            prompt="Over Elena's shoulder toward the photograph.",
+            negative_prompt="wide room",
+            seed=13,
+            reference_image_url="https://example.test/master.png",
+            framing="Over-the-shoulder",
+            framing_target="Elena's shoulder and the Polaroid",
+        )
+    )
+    text = payload["input"]["messages"][0]["content"][-1]["text"]
+    negative = payload["parameters"]["negative_prompt"]
+    assert "Render exactly one live Elena" in text
+    assert "second live person" in negative
+    assert "malformed hands" in negative
+
+
 def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
     raw = {
         "title": "Dynamic order",

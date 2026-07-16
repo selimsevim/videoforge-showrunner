@@ -62,9 +62,11 @@ def framing_visibility_contract(framing: str, subject_position: str) -> str:
             )
         ),
         "over-shoulder": (
-            "OVER-THE-SHOULDER. A near shoulder/back may occupy one frame edge while the eyeline "
-            "target controls the rest of the image. Do not substitute a profile medium shot, "
-            "frontal portrait, or full-body view."
+            "SINGLE-SUBJECT OVER-THE-SHOULDER. Show one live person only: the near shoulder/back "
+            "occupies one frame edge while the eyeline target controls the rest of the image. "
+            "Do not add a second live person, a frontal double, or a face-to-face two-shot. A "
+            "person printed inside a physical photograph is prop content, not a second live "
+            "person. Do not substitute a profile medium shot, frontal portrait, or full-body view."
         ),
         "pov": (
             "TRUE FIRST-PERSON POV. The camera is exactly the observer's eyes. The observer's "
