@@ -315,6 +315,50 @@ def test_framing_gate_uses_visual_target_and_rechecks_crop(monkeypatch, tmp_path
     assert "already been cropped once" in second_prompt
 
 
+def test_face_close_gate_requests_a_face_only_target_box(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+
+    class StubClient:
+        def __init__(self) -> None:
+            self.call = None
+
+        def request_json(self, *args, **kwargs):
+            self.call = (args, kwargs)
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"compliant":true,"reason":"tight face",'
+                                '"targetBox":[300,100,700,900],"cropBox":null}'
+                            )
+                        }
+                    }
+                ]
+            }
+
+    provider.client = StubClient()
+    path = tmp_path / "face.png"
+    Image.new("RGB", (1920, 1080), "black").save(path)
+    provider._framing_check(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-04",
+            prompt="Tight close-up.",
+            negative_prompt="wide room",
+            seed=4,
+            framing="Close-up (tight on face)",
+            framing_target="Elena's face",
+        ),
+        path,
+    )
+    prompt = provider.client.call[1]["json"]["messages"][0]["content"][0]["text"]
+    assert "forehead to chin and cheek to cheek" in prompt
+    assert "70 percent or more" in prompt
+
+
 def test_qwen_consistency_output_normalizes_percent_scores_and_text_warnings() -> None:
     normalized = QwenCloudProvider._normalize_consistency_raw(
         {

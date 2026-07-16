@@ -657,6 +657,16 @@ class QwenCloudProvider(ShowrunnerProvider):
             )
             else ""
         )
+        face_close_rule = (
+            " For a face target, targetBox must contain only the facial oval from forehead to "
+            "chin and cheek to cheek; exclude hair volume, neck, shoulders, and torso from the "
+            "box. In the final close-up, the facial oval should occupy about 70 percent or more "
+            "of frame height. Shoulders may touch only the lower edge, and bed or window geography "
+            "must not remain readable."
+            if family == "close"
+            and re.search(r"\b(face|facial|eyes|expression)\b", target, re.IGNORECASE)
+            else ""
+        )
         crop_instruction = (
             "If the current frame violates the contract but a tight 16:9 crop of existing "
             "pixels can satisfy every requirement, return that crop. The crop must contain the "
@@ -680,7 +690,8 @@ class QwenCloudProvider(ShowrunnerProvider):
                     "0..1000 coordinates). targetBox must tightly locate the named visual target "
                     "whenever it exists, even when no compliant crop seems possible. "
                     f"{crop_instruction} "
-                    f"FRAMING CONTRACT: {contract}.{prop_scale_rule}{hand_anatomy_rule} "
+                    f"FRAMING CONTRACT: {contract}.{prop_scale_rule}{hand_anatomy_rule}"
+                    f"{face_close_rule} "
                     f"SHOT DIRECTION: {request.image_delta or ''}"
                 ),
             },
