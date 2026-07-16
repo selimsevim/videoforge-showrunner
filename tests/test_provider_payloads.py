@@ -152,6 +152,38 @@ def test_qwen_image_edit_payload_uses_canonical_reference(monkeypatch) -> None:
     assert "Extreme close-up insert" in content[1]["text"]
 
 
+def test_qwen_image_edit_payload_adds_shot_shaped_composition_guide(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+    reference = tmp_path / "master.png"
+    Image.new("RGB", (1920, 1080), "teal").save(reference)
+    monkeypatch.setattr(
+        provider,
+        "_composition_guide",
+        lambda request: "data:image/png;base64,composition-guide",
+    )
+    payload = provider._image_payload(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-03",
+            prompt="Insert of the print on the bed.",
+            negative_prompt="wide room",
+            seed=19,
+            reference_image_url="https://example.test/master.png",
+            reference_image_path=str(reference),
+            framing="Insert/detail",
+            framing_target="The Polaroid on the bedsheet",
+        )
+    )
+    content = payload["input"]["messages"][0]["content"]
+    assert content[0] == {"image": "https://example.test/master.png"}
+    assert content[1] == {"image": "data:image/png;base64,composition-guide"}
+    assert "shot-shaped crop" in content[2]["text"]
+
+
 def test_qwen_video_payload_accepts_exact_local_reviewed_frame(
     monkeypatch, tmp_path
 ) -> None:

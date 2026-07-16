@@ -17,6 +17,7 @@ from .jobs import JobRunner
 from .planner import DEMO_PROMPT
 from .prompting import compile_image_prompt, first_frame_target, prompt_hash
 from .providers import MockShowrunnerProvider, QwenCloudProvider, ShowrunnerProvider
+from .retry import attempt_seed
 from .schemas import (
     GenerationConfirmation,
     JobStatus,
@@ -254,6 +255,7 @@ def create_app(
         reference_shot_id: str | None = None,
         reference_job_id: str | None = None,
         reference_image_url: str | None = None,
+        reference_image_path: str | None = None,
     ) -> str:
         plan = ProductionPlan.model_validate(project["plan"])
         planned_shot = next(item for item in plan.shots if item.id == shot["id"])
@@ -263,11 +265,12 @@ def create_app(
             shot_id=shot["id"],
             prompt=prompt,
             negative_prompt=plan.visual_bible.negative_prompt,
-            seed=shot["imageSeed"],
+            seed=attempt_seed(shot["imageSeed"], retry),
             size="1920*1080",
             reference_shot_id=reference_shot_id,
             reference_job_id=reference_job_id,
             reference_image_url=reference_image_url,
+            reference_image_path=reference_image_path,
             framing=planned_shot.framing,
             subject_position=planned_shot.subject_position,
             framing_target=first_frame_target(planned_shot),
@@ -294,6 +297,8 @@ def create_app(
                 "prompt_extend": False,
                 "n": 1,
                 "referenceShotId": reference_shot_id,
+                "baseSeed": shot["imageSeed"],
+                "attemptSeed": request.seed,
             },
             estimated_cost=settings.image_cost_cny,
             retry_count=retry,
@@ -364,12 +369,14 @@ def create_app(
         database.set_stage(project_id, ProductionStage.STORYBOARD_GENERATING)
         master = _reference_master(project)
         reference_url = None
+        reference_path = None
         reference_shot_id = None
         if selected_provider.name == "qwen" and shot["id"] != master["id"]:
             reference = database.latest_asset(project_id, master["id"], "image")
             if not reference or not reference["remoteUrl"]:
                 raise ValueError("The continuity master must be regenerated first")
             reference_url = reference["remoteUrl"]
+            reference_path = reference["localPath"]
             reference_shot_id = master["id"]
         job_id = _image_job(
             project,
@@ -377,6 +384,7 @@ def create_app(
             retries,
             reference_shot_id=reference_shot_id,
             reference_image_url=reference_url,
+            reference_image_path=reference_path,
         )
         runner.enqueue(job_id)
         return {"projectId": project_id, "jobId": job_id, "status": "accepted"}

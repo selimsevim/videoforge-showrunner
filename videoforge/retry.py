@@ -12,6 +12,13 @@ NON_RETRYABLE_CODES = {
 }
 
 
+def attempt_seed(base_seed: int, retry_count: int) -> int:
+    """Keep the first seed stable while making paid retries explore a new result."""
+    if retry_count <= 0:
+        return base_seed
+    return (base_seed + retry_count * 104_729) % (2**31)
+
+
 def is_retryable_error(code: str | int | None, message: str = "") -> bool:
     normalized = str(code or "").upper().replace(" ", "_")
     if normalized in NON_RETRYABLE_CODES:
@@ -22,4 +29,3 @@ def is_retryable_error(code: str | int | None, message: str = "") -> bool:
     if any(token in lower for token in ("authentication", "moderation", "invalid model")):
         return False
     return any(token in lower for token in ("timeout", "connection", "temporarily", "rate limit"))
-

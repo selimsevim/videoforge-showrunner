@@ -149,7 +149,10 @@ class JobRunner:
                             code="REFERENCE_IMAGE_MISSING",
                         )
                     request = request.model_copy(
-                        update={"reference_image_url": reference["remoteUrl"]}
+                        update={
+                            "reference_image_url": reference["remoteUrl"],
+                            "reference_image_path": reference["localPath"],
+                        }
                     )
                     break
                 time.sleep(0.2)

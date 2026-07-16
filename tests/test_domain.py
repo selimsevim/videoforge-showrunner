@@ -14,7 +14,7 @@ from videoforge.config import Settings
 from videoforge.consistency import repair_plan_consistency, validate_plan_consistency
 from videoforge.planner import DEMO_PROMPT, create_mock_plan, deterministic_seed
 from videoforge.prompting import compile_image_prompt, immutable_bible_text, prompt_hash
-from videoforge.retry import is_retryable_error
+from videoforge.retry import attempt_seed, is_retryable_error
 from videoforge.schemas import ProductionPlan, ProductionStage, ProjectInput
 from videoforge.state_machine import can_transition, require_transition
 
@@ -274,6 +274,13 @@ def test_prompt_hash_is_stable() -> None:
     assert prompt_hash("locked prompt") == prompt_hash("locked prompt")
     assert prompt_hash("locked prompt") != prompt_hash("locked prompt ")
     assert len(prompt_hash("locked prompt")) == 64
+
+
+def test_attempt_seed_preserves_first_call_and_changes_retries() -> None:
+    assert attempt_seed(123, 0) == 123
+    assert attempt_seed(123, 1) != 123
+    assert attempt_seed(123, 1) == attempt_seed(123, 1)
+    assert 0 <= attempt_seed(2**31 - 1, 3) < 2**31
 
 
 @pytest.mark.parametrize("code", [429, "500", "TIMEOUT", "CONNECTION"])

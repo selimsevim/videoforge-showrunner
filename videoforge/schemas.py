@@ -219,6 +219,7 @@ class ProviderImageRequest(BaseModel):
     reference_shot_id: str | None = None
     reference_job_id: str | None = None
     reference_image_url: str | None = None
+    reference_image_path: str | None = None
     framing: str | None = None
     subject_position: str | None = None
     framing_target: str | None = None

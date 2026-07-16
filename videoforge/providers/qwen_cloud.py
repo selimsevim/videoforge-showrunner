@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 import mimetypes
 import os
@@ -386,6 +387,9 @@ class QwenCloudProvider(ShowrunnerProvider):
         negative_prompt = request.negative_prompt
         if request.reference_image_url:
             content.append({"image": request.reference_image_url})
+            composition_guide = self._composition_guide(request)
+            if composition_guide:
+                content.append({"image": composition_guide})
             family = framing_family(request.framing or "")
             identity_rule = (
                 "Image 1 is the canonical physical-set reference only. The observer must be "
@@ -403,6 +407,14 @@ class QwenCloudProvider(ShowrunnerProvider):
                 negative_prompt += ", face, head, torso, full body, portrait, room overview"
             prompt = (
                 identity_rule
+                + (
+                    "Image 2 is a shot-shaped crop derived from Image 1. Use Image 2 only to "
+                    "set the new camera scale and crop. Keep Image 1 authoritative for identity, "
+                    "set geometry, wardrobe, and lighting. The desired prop or pose may be absent "
+                    "from both references; create it exactly as the text ledger declares. "
+                    if composition_guide
+                    else ""
+                )
                 + "Preserve the exact wall color, window count and position, "
                 "bed design and position, shelf, nightstand, floor, lighting direction, and all "
                 "architectural details. Do not add, remove, mirror, resize, or relocate windows, "
@@ -434,6 +446,81 @@ class QwenCloudProvider(ShowrunnerProvider):
                 "seed": request.seed,
             },
         }
+
+    def _composition_guide(self, request: ProviderImageRequest) -> str | None:
+        if not request.reference_image_path or not request.framing:
+            return None
+        family = framing_family(request.framing)
+        if family in {"wide", "other"}:
+            return None
+        path = Path(request.reference_image_path)
+        if not path.exists():
+            return None
+        mime = mimetypes.guess_type(path)[0] or "image/png"
+        encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        target = request.framing_target or request.subject_position or "the named subject"
+        payload = {
+            "model": self.settings.qwen_vision_model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "You are preparing a composition-reference crop from a wide "
+                                "continuity master. Return only JSON with cropBox as either null "
+                                "or [left, top, right, bottom] in normalized 0..1000 coordinates. "
+                                "Choose a tight 16:9 crop of existing pixels that supplies the "
+                                "most useful visible anchor for the requested new shot. The crop "
+                                "is a camera-scale guide, not the final frame. If the requested "
+                                "object is absent, crop its named supporting surface; for a face, "
+                                "crop the same face; for hands, crop the hands and nearby torso; "
+                                "for over-the-shoulder coverage, crop the actor's upper torso and "
+                                "shoulder area. Avoid returning the full wide frame. "
+                                f"REQUESTED FRAMING: {request.framing}. "
+                                f"VISUAL TARGET: {target}. "
+                                f"SHOT DIRECTION: {request.image_delta or ''}"
+                            ),
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime};base64,{encoded}"},
+                        },
+                    ],
+                }
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0,
+        }
+        data = self.client.request_json(
+            "POST", f"{self.text_base}/chat/completions", json=payload
+        )
+        raw = self._extract_json(data["choices"][0]["message"]["content"])
+        crop_box = raw.get("cropBox")
+        if not self._valid_crop_box(crop_box):
+            return None
+        with Image.open(path) as source:
+            source.load()
+            width, height = source.size
+            left, top, right, bottom = crop_box
+            pixel_box = self._fit_crop_to_aspect(
+                (
+                    round(left * width / 1000),
+                    round(top * height / 1000),
+                    round(right * width / 1000),
+                    round(bottom * height / 1000),
+                ),
+                width,
+                height,
+            )
+            crop = source.crop(pixel_box).resize(
+                (width, height), Image.Resampling.LANCZOS
+            )
+            buffer = io.BytesIO()
+            crop.save(buffer, format="PNG")
+        guide = base64.b64encode(buffer.getvalue()).decode("ascii")
+        return f"data:image/png;base64,{guide}"
 
     def _video_payload(self, request: ProviderVideoRequest) -> dict[str, Any]:
         first_frame_url = self._media_url(request.first_frame_url)
@@ -628,9 +715,9 @@ class QwenCloudProvider(ShowrunnerProvider):
     def generate_image(
         self, request: ProviderImageRequest, output_path: Path
     ) -> dict[str, Any]:
-        payload = self._image_payload(request)
         url = f"{self.native_base}/services/aigc/multimodal-generation/generation"
         try:
+            payload = self._image_payload(request)
             data = self.client.request_json("POST", url, json=payload)
             image_url = data["output"]["choices"][0]["message"]["content"][0][
                 "image"
