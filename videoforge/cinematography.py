@@ -27,6 +27,9 @@ def framing_visibility_contract(framing: str, subject_position: str) -> str:
     """Translate free-form LLM coverage into a strict, order-independent crop contract."""
     family = framing_family(framing)
     target = subject_position.strip()
+    physical_photo_target = bool(
+        re.search(r"\b(polaroid|photo|photograph|print)\b", target, re.IGNORECASE)
+    )
     contracts = {
         "wide": (
             "WIDE/MASTER. Show the spatial geography and the subject within it. The room may "
@@ -42,10 +45,21 @@ def framing_visibility_contract(framing: str, subject_position: str) -> str:
             "and head must be completely outside the frame."
         ),
         "detail": (
-            "INSERT/DETAIL. Fill the entire frame with only the named object, texture, or body "
-            "region. A person may appear only as the explicitly named partial body region, such "
-            "as fingertips. No face, head, torso, full body, bed-wide composition, window, or "
-            "room overview may be visible."
+            (
+                "PHYSICAL PHOTO DETAIL. The single hand-sized print must dominate the frame with "
+                "correct perspective and contact with its supporting surface or declared fingers. "
+                "A narrow area of supporting surface and declared fingertips may remain visible. "
+                "No live face, live head, live torso, full body, bed-wide composition, window, or "
+                "room overview may appear outside the print. A face or body printed inside the "
+                "physical photograph is part of the prop and is explicitly allowed."
+            )
+            if physical_photo_target
+            else (
+                "INSERT/DETAIL. Fill the entire frame with only the named object, texture, or body "
+                "region. A person may appear only as the explicitly named partial body region, such "
+                "as fingertips. No face, head, torso, full body, bed-wide composition, window, or "
+                "room overview may be visible."
+            )
         ),
         "over-shoulder": (
             "OVER-THE-SHOULDER. A near shoulder/back may occupy one frame edge while the eyeline "

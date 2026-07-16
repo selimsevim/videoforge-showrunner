@@ -622,7 +622,10 @@ class QwenCloudProvider(ShowrunnerProvider):
             "physical 3.5 by 4.25 inch print with correct perspective and contact with the "
             "declared hand or surface. Its width may not exceed two visible adult palm widths. "
             "Reject a floating graphic, inset picture, duplicated print, body-sized print, or "
-            "full-frame overlay even when the subject inside the print is correct."
+            "full-frame overlay even when the subject inside the print is correct. A face or body "
+            "printed inside the physical card is explicitly allowed and must not be mistaken for "
+            "a live person outside the card. A realistic tilt and a narrow area of supporting "
+            "surface are allowed."
             if re.search(r"\b(polaroid|photo|photograph)\b", target, re.IGNORECASE)
             else ""
         )

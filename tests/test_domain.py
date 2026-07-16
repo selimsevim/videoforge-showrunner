@@ -242,10 +242,19 @@ def test_visibility_contract_enforces_actual_crop_without_prescribing_order() ->
         "Insert/detail", "Only the photograph and two fingertips"
     )
     pov = framing_visibility_contract("POV", "Her eyeline toward the footboard")
-    assert "No face, head, torso, full body" in detail
+    assert "No live face, live head, live torso" in detail
     assert "Only the photograph and two fingertips" in detail
     assert "TRUE FIRST-PERSON POV" in pov
     assert "face, head, torso, and full body cannot appear" in pov
+
+
+def test_photo_detail_contract_allows_printed_subject_but_not_live_actor() -> None:
+    contract = framing_visibility_contract(
+        "Insert/detail", "The Polaroid lying on the bedsheet"
+    )
+    assert "PHYSICAL PHOTO DETAIL" in contract
+    assert "A face or body printed inside" in contract
+    assert "No live face, live head, live torso" in contract
 
 
 def test_consistency_guardian_repairs_paraphrased_prompt() -> None:
