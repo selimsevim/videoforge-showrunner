@@ -117,6 +117,18 @@ def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
     assert normalized["shots"][1]["subjectPosition"] == "Elena kneels beside the bed"
 
 
+def test_qwen_revision_identifies_only_named_failing_shots() -> None:
+    assert QwenCloudProvider._issue_shot_ids(
+        [
+            "shot-02 combines multiple actions",
+            "shot-04 endState must exactly equal shot-05 startState",
+        ]
+    ) == {"shot-02", "shot-04", "shot-05"}
+    assert QwenCloudProvider._issue_shot_ids(
+        ["coverage uses only two framing families"]
+    ) == set()
+
+
 def test_qwen_image_edit_payload_uses_canonical_reference(monkeypatch) -> None:
     monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
     monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")

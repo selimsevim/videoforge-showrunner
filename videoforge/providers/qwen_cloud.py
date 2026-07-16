@@ -223,6 +223,14 @@ class QwenCloudProvider(ShowrunnerProvider):
             "temperature": 0.3,
         }
 
+    @staticmethod
+    def _issue_shot_ids(issues: list[str]) -> set[str]:
+        return {
+            shot_id
+            for issue in issues
+            for shot_id in re.findall(r"\bshot-\d{2}\b", issue)
+        }
+
     def create_production_plan(
         self, project_id: str, project: ProjectInput
     ) -> ProductionPlan:
@@ -237,9 +245,13 @@ class QwenCloudProvider(ShowrunnerProvider):
             )
             plan = ProductionPlan.model_validate(raw)
             issues = cinematography_issues(plan)
-            for _revision_attempt in range(3):
+            for _revision_attempt in range(5):
                 if not issues:
                     break
+                targeted_ids = self._issue_shot_ids(issues)
+                only_shot_specific = bool(targeted_ids) and all(
+                    re.search(r"\bshot-\d{2}\b", issue) for issue in issues
+                )
                 revision = self.client.request_json(
                     "POST",
                     f"{self.text_base}/chat/completions",
@@ -254,7 +266,22 @@ class QwenCloudProvider(ShowrunnerProvider):
                     project_id,
                     project,
                 )
-                plan = ProductionPlan.model_validate(revised_raw)
+                revised_plan = ProductionPlan.model_validate(revised_raw)
+                if only_shot_specific:
+                    revised_by_id = {shot.id: shot for shot in revised_plan.shots}
+                    merged_raw = plan.model_dump(by_alias=True)
+                    merged_raw["shots"] = [
+                        revised_by_id.get(shot.id, shot).model_dump(by_alias=True)
+                        if shot.id in targeted_ids
+                        else shot.model_dump(by_alias=True)
+                        for shot in plan.shots
+                    ]
+                    merged_raw = self._normalize_plan_raw(
+                        merged_raw, project_id, project
+                    )
+                    plan = ProductionPlan.model_validate(merged_raw)
+                else:
+                    plan = revised_plan
                 issues = cinematography_issues(plan)
             if issues:
                 raise ProviderError(
@@ -279,6 +306,13 @@ class QwenCloudProvider(ShowrunnerProvider):
         plan: ProductionPlan,
         issues: list[str],
     ) -> dict[str, Any]:
+        issue_shot_ids = self._issue_shot_ids(issues)
+        editable_shot_ids = (
+            sorted(issue_shot_ids)
+            if issue_shot_ids
+            and all(re.search(r"\bshot-\d{2}\b", issue) for issue in issues)
+            else []
+        )
         return {
             "model": self.settings.qwen_text_model,
             "messages": [
@@ -288,7 +322,9 @@ class QwenCloudProvider(ShowrunnerProvider):
                         "You are a film director revising a storyboard for visual and editorial "
                         "continuity. Return only the complete ProductionPlan JSON matching the "
                         "schema. Resolve every supplied validation issue, but do not impose a "
-                        "fixed shot order. Choose coverage and order from the narrative: the film "
+                        "fixed shot order. When editableShotIds is non-empty, copy every other "
+                        "shot verbatim and revise only those named shots. "
+                        "Choose coverage and order from the narrative: the film "
                         "may begin wide, close, detail, POV, or otherwise. Preserve the same "
                         "character, location, lighting, screen geography, and 180-degree axis. "
                         "Every cut must advance action, eyeline, information, or prop state. "
@@ -329,6 +365,7 @@ class QwenCloudProvider(ShowrunnerProvider):
                             "projectId": project_id,
                             "input": project.model_dump(by_alias=True),
                             "validationIssues": issues,
+                            "editableShotIds": editable_shot_ids,
                             "draftPlan": plan.model_dump(by_alias=True),
                             "requiredSchema": ProductionPlan.model_json_schema(by_alias=True),
                         }
