@@ -145,6 +145,27 @@ def test_prop_must_be_tracked_while_concealed_or_off_screen() -> None:
     )
 
 
+def test_explicit_uncovering_may_bring_concealed_prop_into_view() -> None:
+    production = plan()
+    first = production.shots[0]
+    start = first.start_state.rsplit("| PROP:", 1)[0] + "| PROP: none"
+    end = first.end_state.rsplit("| PROP:", 1)[0] + "| PROP: Polaroid under pillow"
+    revised_first = first.model_copy(
+        update={
+            "start_state": start,
+            "subject_action": "Mara lifts the pillow and reveals the Polaroid.",
+            "end_state": end,
+            "prop_state": "none",
+        }
+    )
+    revised = production.model_copy(
+        update={"shots": [revised_first, *production.shots[1:]]}
+    )
+    assert not any(
+        "appear or disappear" in issue for issue in practical_motion_issues(revised)
+    )
+
+
 def test_visibility_contract_enforces_actual_crop_without_prescribing_order() -> None:
     detail = framing_visibility_contract(
         "Insert/detail", "Only the photograph and two fingertips"

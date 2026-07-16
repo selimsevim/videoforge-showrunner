@@ -224,10 +224,17 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
             end_prop = normalized(end_match.group("prop"))
             absent_values = {"none", "absent", "no prop"}
             if (start_prop in absent_values) != (end_prop in absent_values):
-                issues.append(
-                    f"{shot.id} makes the prop appear or disappear instead of tracking it "
-                    "as concealed or off-screen"
+                visibility_action = re.compile(
+                    r"\b(reveal\w*|uncover\w*|expose\w*|hide\w*|conceal\w*|remove\w*)\b|"
+                    r"\b(pull\w*|lift\w*|take\w*|slide\w*)\b.{0,40}"
+                    r"\b(from|under|beneath|behind|off[- ]?screen|into view)\b",
+                    re.IGNORECASE,
                 )
+                if not visibility_action.search(shot.subject_action):
+                    issues.append(
+                        f"{shot.id} makes the prop appear or disappear without an explicit "
+                        "uncovering or removal action"
+                    )
             start_hands = normalized(start_match.group("hands"))
             end_hands = normalized(end_match.group("hands"))
             prop_terms = re.compile(r"\b(polaroid|photo|photograph|object|prop)\b")
@@ -244,7 +251,14 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
                 issues.append(
                     f"{shot.id} ends with the prop in hand without explicitly picking it up"
                 )
-        if normalized(shot.start_state) == normalized(shot.end_state):
+        observational_action = re.compile(
+            r"\b(look\w*|stare\w*|watch\w*|hold\w*|remain\w*|wait\w*|"
+            r"breathe\w*|exhale\w*)\b",
+            re.IGNORECASE,
+        )
+        if normalized(shot.start_state) == normalized(
+            shot.end_state
+        ) and not observational_action.search(shot.subject_action):
             issues.append(f"{shot.id} action does not create a new physical endState")
 
     for previous, current in zip(plan.shots, plan.shots[1:]):
