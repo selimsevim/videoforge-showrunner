@@ -117,6 +117,16 @@ class QwenCloudProvider(ShowrunnerProvider):
                 shot["motionPrompt"].strip()
             ) < 3:
                 shot["motionPrompt"] = "pending compilation"
+            seed = shot.get("videoSeed")
+            if not isinstance(seed, int) or not 0 <= seed <= 2**31 - 1:
+                shot["videoSeed"] = deterministic_seed(project_id, order, "video")
+        for index, shot in enumerate(shots):
+            if not isinstance(shot, dict):
+                continue
+            if index > 0 and isinstance(shots[index - 1], dict):
+                previous_end = shots[index - 1].get("endState")
+                if isinstance(previous_end, str) and previous_end.strip():
+                    shot["startState"] = previous_end
             start_state = shot.get("startState")
             if isinstance(start_state, str):
                 ledger = re.fullmatch(
@@ -128,9 +138,6 @@ class QwenCloudProvider(ShowrunnerProvider):
                 if ledger:
                     shot["subjectPosition"] = ledger.group("body")
                     shot["propState"] = ledger.group("prop")
-            seed = shot.get("videoSeed")
-            if not isinstance(seed, int) or not 0 <= seed <= 2**31 - 1:
-                shot["videoSeed"] = deterministic_seed(project_id, order, "video")
         return raw
 
     def _planning_payload(self, project_id: str, project: ProjectInput) -> dict[str, Any]:
@@ -304,10 +311,14 @@ class QwenCloudProvider(ShowrunnerProvider):
                         "its appearance requires an explicit uncovering or pull-from-under action. "
                         "Never animate new evidence developing, emerging, appearing, or changing "
                         "inside a photograph; disclose pre-existing evidence with one physical move. "
+                        "Bad: 'a new figure emerges in the photo.' Good: the figure is already "
+                        "printed in PROP and the subject turns the photo toward camera. Before "
+                        "returning JSON, scan every executable field and remove sound, particles, "
+                        "focus changes, atmosphere, and self-changing evidence. "
                         "If validation says an action creates no new physical endState, replace "
                         "that action with one simple visible movement and update its endState, "
                         "unless it is deliberately an observational look, stare, or held reaction. "
-                        "imagePrompt and motionPrompt to placeholders because the server compiles "
+                        "Set imagePrompt and motionPrompt to placeholders because the server compiles "
                         "them after validation."
                     ),
                 },
@@ -325,7 +336,7 @@ class QwenCloudProvider(ShowrunnerProvider):
                 },
             ],
             "response_format": {"type": "json_object"},
-            "temperature": 0.25,
+            "temperature": 0.1,
         }
 
     def _image_payload(self, request: ProviderImageRequest) -> dict[str, Any]:

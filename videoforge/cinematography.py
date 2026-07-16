@@ -181,10 +181,16 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
                 shot.camera_motion,
             )
         )
-        if sensory_banned.search(operational_direction) or internal_motion_banned.search(
-            executable_direction
-        ) or self_changing_prop.search(executable_direction):
-            issues.append(f"{shot.id} contains poetic, sonic, or micro-atmospheric motion")
+        forbidden_match = (
+            sensory_banned.search(operational_direction)
+            or internal_motion_banned.search(executable_direction)
+            or self_changing_prop.search(executable_direction)
+        )
+        if forbidden_match:
+            issues.append(
+                f"{shot.id} contains poetic, sonic, or micro-atmospheric motion "
+                f"({forbidden_match.group(0)})"
+            )
         if complex_connectors.search(shot.subject_action):
             issues.append(f"{shot.id} combines multiple actions instead of one physical action")
         if len(re.findall(r"\band\b", shot.subject_action, re.IGNORECASE)) > 1:

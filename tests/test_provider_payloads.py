@@ -62,6 +62,10 @@ def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
                     "BODY: Elena stands beside the bed | HANDS: Both hands are still | "
                     "PROP: The Polaroid lies on the floor"
                 ),
+                "endState": (
+                    "BODY: Elena kneels beside the bed | HANDS: Right hand reaches down | "
+                    "PROP: The Polaroid lies on the floor"
+                ),
                 "propState": "wrong prop state",
                 "durationSeconds": 9,
                 "imageSeed": -1,
@@ -76,6 +80,10 @@ def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
                 "durationSeconds": 1,
                 "imageSeed": 17,
                 "videoSeed": 2**40,
+                "startState": (
+                    "BODY: mismatched body | HANDS: mismatched hands | "
+                    "PROP: mismatched prop"
+                ),
             },
         ],
     }
@@ -105,6 +113,8 @@ def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
     assert normalized["shots"][0]["motionPrompt"] == "pending compilation"
     assert normalized["shots"][0]["subjectPosition"] == "Elena stands beside the bed"
     assert normalized["shots"][0]["propState"] == "The Polaroid lies on the floor"
+    assert normalized["shots"][1]["startState"] == normalized["shots"][0]["endState"]
+    assert normalized["shots"][1]["subjectPosition"] == "Elena kneels beside the bed"
 
 
 def test_qwen_image_edit_payload_uses_canonical_reference(monkeypatch) -> None:
