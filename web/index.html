@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0d0e" />
+    <title>VideoForge Showrunner</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div>
+            <strong>VideoForge</strong>
+            <small>AI SHOWRUNNER</small>
+          </div>
+        </div>
+
+        <nav class="stage-nav" aria-label="Production stages">
+          <button class="stage-link active" data-view="concept">
+            <span class="stage-index">01</span><span>Concept</span><i></i>
+          </button>
+          <button class="stage-link" data-view="plan">
+            <span class="stage-index">02</span><span>Plan</span><i></i>
+          </button>
+          <button class="stage-link" data-view="storyboard">
+            <span class="stage-index">03</span><span>Storyboard</span><i></i>
+          </button>
+          <button class="stage-link" data-view="production">
+            <span class="stage-index">04</span><span>Production</span><i></i>
+          </button>
+          <button class="stage-link" data-view="final">
+            <span class="stage-index">05</span><span>Final Cut</span><i></i>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="provider-chip"><span class="status-dot"></span><span id="provider-label">Loading provider</span></div>
+          <p>Keyframe-first continuity<br />Qwen Image + Wan 2.7</p>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow" id="project-kicker">NEW PRODUCTION</p>
+            <h1 id="project-heading">Create a short film</h1>
+          </div>
+          <div class="topbar-meta">
+            <div class="meta-item"><span>STAGE</span><strong id="stage-label">DRAFT</strong></div>
+            <div class="meta-item"><span>SAVED</span><strong id="saved-label">—</strong></div>
+            <div class="budget-meter">
+              <span>EST. BUDGET</span>
+              <strong id="budget-label">— CNY</strong>
+            </div>
+          </div>
+        </header>
+
+        <div id="notice" class="notice" role="status" aria-live="polite"></div>
+        <section id="view" class="view" aria-live="polite"></section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast" role="alert"></div>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+.env
+runs/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+smoke-output/
+output/playwright/
+output/
+.DS_Store
