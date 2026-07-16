@@ -187,6 +187,35 @@ def test_lifting_a_cover_is_itself_a_clear_reveal_action() -> None:
     )
 
 
+def test_prop_cannot_change_hands_without_a_transfer_action() -> None:
+    production = plan()
+    first = production.shots[0]
+    start = (
+        "BODY: Mara stands beside the bed | "
+        "HANDS: right hand holding the Polaroid | PROP: Polaroid face-up"
+    )
+    end = (
+        "BODY: Mara stands beside the bed | "
+        "HANDS: left hand holding the Polaroid | PROP: Polaroid face-up"
+    )
+    broken_first = first.model_copy(
+        update={
+            "subject_position": "Mara stands beside the bed",
+            "start_state": start,
+            "subject_action": "Mara pulls her head back.",
+            "end_state": end,
+            "prop_state": "Polaroid face-up",
+        }
+    )
+    broken = production.model_copy(
+        update={"shots": [broken_first, *production.shots[1:]]}
+    )
+    assert any(
+        "transfers the prop between hands" in issue
+        for issue in practical_motion_issues(broken)
+    )
+
+
 def test_visibility_contract_enforces_actual_crop_without_prescribing_order() -> None:
     detail = framing_visibility_contract(
         "Insert/detail", "Only the photograph and two fingertips"

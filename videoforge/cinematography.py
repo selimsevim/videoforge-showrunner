@@ -258,6 +258,30 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
                 issues.append(
                     f"{shot.id} ends with the prop in hand without explicitly picking it up"
                 )
+            right_holds = re.compile(
+                r"\bright\b.{0,35}\b(hold\w*|grip\w*)\b.{0,35}"
+                r"\b(polaroid|photo|photograph|object|prop)\b",
+                re.IGNORECASE,
+            )
+            left_holds = re.compile(
+                r"\bleft\b.{0,35}\b(hold\w*|grip\w*)\b.{0,35}"
+                r"\b(polaroid|photo|photograph|object|prop)\b",
+                re.IGNORECASE,
+            )
+            transfer_action = re.compile(
+                r"\b(transfer\w*|pass\w*|switch\w*|move\w*)\b.{0,35}\bhand\b|"
+                r"\bhand\b.{0,35}\b(transfer\w*|pass\w*|switch\w*|move\w*)\b",
+                re.IGNORECASE,
+            )
+            changes_holding_side = (
+                right_holds.search(start_hands) and left_holds.search(end_hands)
+            ) or (
+                left_holds.search(start_hands) and right_holds.search(end_hands)
+            )
+            if changes_holding_side and not transfer_action.search(shot.subject_action):
+                issues.append(
+                    f"{shot.id} transfers the prop between hands without naming that action"
+                )
         observational_action = re.compile(
             r"\b(look\w*|stare\w*|watch\w*|hold\w*|remain\w*|wait\w*|"
             r"breathe\w*|exhale\w*)\b",
