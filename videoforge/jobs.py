@@ -109,7 +109,11 @@ class JobRunner:
         job = self.database.get_job(job_id)
         if job["kind"] != "image" or job["status"] != JobStatus.FAILED:
             raise ValueError("Only a failed image job can be reframed")
-        if job["errorCode"] not in {"FRAMING_VALIDATION_FAILED", "CROPPING"}:
+        if job["errorCode"] not in {
+            "FRAMING_VALIDATION_FAILED",
+            "CROPPING",
+            "CROP",
+        }:
             raise ValueError("Only a framing-validation failure can be reframed")
         request = ProviderImageRequest.model_validate(job["payload"])
         source_path = (
