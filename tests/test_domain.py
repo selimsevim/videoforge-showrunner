@@ -103,6 +103,18 @@ def test_practical_motion_validator_rejects_first_frame_ledger_conflicts() -> No
     assert any("propState must exactly equal startState PROP" in issue for issue in issues)
 
 
+def test_editorial_recognition_is_allowed_outside_executable_motion() -> None:
+    production = plan()
+    first = production.shots[0].model_copy(
+        update={"framing_reason": "A close view lets the audience read her recognition."}
+    )
+    revised = production.model_copy(update={"shots": [first, *production.shots[1:]]})
+    assert not any(
+        "poetic, sonic, or micro-atmospheric" in issue
+        for issue in practical_motion_issues(revised)
+    )
+
+
 def test_visibility_contract_enforces_actual_crop_without_prescribing_order() -> None:
     detail = framing_visibility_contract(
         "Insert/detail", "Only the photograph and two fingertips"

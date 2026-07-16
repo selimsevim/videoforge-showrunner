@@ -223,7 +223,7 @@ class QwenCloudProvider(ShowrunnerProvider):
             )
             plan = ProductionPlan.model_validate(raw)
             issues = cinematography_issues(plan)
-            for _revision_attempt in range(2):
+            for _revision_attempt in range(3):
                 if not issues:
                     break
                 revision = self.client.request_json(
@@ -292,6 +292,8 @@ class QwenCloudProvider(ShowrunnerProvider):
                         "keyframe depicts startState before the action, never the reveal created "
                         "by endState. Never introduce or change the prop between ledger states "
                         "without a subjectAction that physically causes it. "
+                        "If validation says an action creates no new physical endState, replace "
+                        "that action with one simple visible movement and update its endState. "
                         "imagePrompt and motionPrompt to placeholders because the server compiles "
                         "them after validation."
                     ),

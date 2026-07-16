@@ -103,10 +103,13 @@ def cinematography_issues(plan: ProductionPlan) -> list[str]:
 def practical_motion_issues(plan: ProductionPlan) -> list[str]:
     """Reject poetic motion prose that cannot be executed as one clear screen action."""
     issues: list[str] = []
-    banned = re.compile(
-        r"\b(audibly|faintly|rustl\w*|dust motes?|light beam|recognition|realiz\w*|"
-        r"remember\w*|cognitive|dissonance|atmosphere|imperceptibly|micro[- ]?adjust\w*|"
-        r"rack focus|focus shift|breath catches?)\b",
+    sensory_banned = re.compile(
+        r"\b(audibly|faintly|rustl\w*|dust motes?|light beam|atmosphere|"
+        r"imperceptibly|micro[- ]?adjust\w*|rack focus|focus shift|breath catches?)\b",
+        re.IGNORECASE,
+    )
+    internal_motion_banned = re.compile(
+        r"\b(recognition|realiz\w*|remember\w*|cognitive|dissonance)\b",
         re.IGNORECASE,
     )
     complex_connectors = re.compile(
@@ -165,7 +168,18 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
                 shot.image_delta,
             )
         )
-        if banned.search(operational_direction):
+        executable_direction = " ".join(
+            (
+                shot.start_state,
+                shot.subject_action,
+                shot.end_state,
+                shot.environment_motion,
+                shot.camera_motion,
+            )
+        )
+        if sensory_banned.search(operational_direction) or internal_motion_banned.search(
+            executable_direction
+        ):
             issues.append(f"{shot.id} contains poetic, sonic, or micro-atmospheric motion")
         if complex_connectors.search(shot.subject_action):
             issues.append(f"{shot.id} combines multiple actions instead of one physical action")
