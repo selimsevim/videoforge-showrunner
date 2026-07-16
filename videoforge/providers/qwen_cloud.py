@@ -660,9 +660,10 @@ class QwenCloudProvider(ShowrunnerProvider):
         face_close_rule = (
             " For a face target, targetBox must contain only the facial oval from forehead to "
             "chin and cheek to cheek; exclude hair volume, neck, shoulders, and torso from the "
-            "box. In the final close-up, the facial oval should occupy about 70 percent or more "
-            "of frame height. Shoulders may touch only the lower edge, and bed or window geography "
-            "must not remain readable."
+            "box. In the final 16:9 close-up, the facial oval should occupy about 55 percent or "
+            "more of frame height. Shoulders may touch only the lower edge. Bed, window, and "
+            "furniture geography must not remain readable, but one non-descriptive wall texture "
+            "may remain as background."
             if family == "close"
             and re.search(r"\b(face|facial|eyes|expression)\b", target, re.IGNORECASE)
             else ""

@@ -356,7 +356,8 @@ def test_face_close_gate_requests_a_face_only_target_box(monkeypatch, tmp_path) 
     )
     prompt = provider.client.call[1]["json"]["messages"][0]["content"][0]["text"]
     assert "forehead to chin and cheek to cheek" in prompt
-    assert "70 percent or more" in prompt
+    assert "55 percent or more" in prompt
+    assert "one non-descriptive wall texture" in prompt
 
 
 def test_qwen_consistency_output_normalizes_percent_scores_and_text_warnings() -> None:
