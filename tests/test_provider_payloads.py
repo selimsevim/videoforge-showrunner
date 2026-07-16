@@ -91,6 +91,29 @@ def test_over_shoulder_payload_forbids_a_second_live_copy(monkeypatch) -> None:
     assert "malformed hands" in negative
 
 
+def test_face_up_polaroid_payload_forbids_marks_on_front_border(monkeypatch) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+    payload = provider._image_payload(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-05",
+            prompt=(
+                "SHOT_START_STATE: BODY: standing | HANDS: holding print | "
+                "PROP: face-up Polaroid at chest height"
+            ),
+            negative_prompt="wide room",
+            seed=14,
+            framing="Over-the-shoulder",
+            framing_target="Elena's shoulder, hands, and the Polaroid",
+        )
+    )
+    negative = payload["parameters"]["negative_prompt"]
+    assert "printed text on the Polaroid's front white border" in negative
+    assert negative.index("front white border") < negative.index("wide room")
+
+
 def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
     raw = {
         "title": "Dynamic order",
@@ -420,6 +443,52 @@ def test_framing_gate_uses_visual_target_and_rechecks_crop(monkeypatch, tmp_path
     assert "nearby camera may make the physical print" in first_prompt
     assert "anatomically plausible" not in first_prompt
     assert "already been cropped once" in second_prompt
+
+
+def test_face_up_polaroid_gate_requires_a_blank_front_border(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+
+    class StubClient:
+        def __init__(self) -> None:
+            self.call = None
+
+        def request_json(self, *args, **kwargs):
+            self.call = (args, kwargs)
+            return {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"compliant":true,"reason":"clean border",'
+                                '"targetBox":[250,250,750,750],"cropBox":null}'
+                            )
+                        }
+                    }
+                ]
+            }
+
+    provider.client = StubClient()
+    path = tmp_path / "polaroid.png"
+    Image.new("RGB", (1920, 1080), "black").save(path)
+    provider._framing_check(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-05",
+            prompt="PROP: face-up Polaroid held at chest height",
+            negative_prompt="wide room",
+            seed=5,
+            framing="Over-the-shoulder",
+            framing_target="Elena's shoulder, both hands, and the Polaroid",
+        ),
+        path,
+    )
+    prompt = provider.client.call[1]["json"]["messages"][0]["content"][0]["text"]
+    assert "front white border must be blank" in prompt
+    assert "Reject any handwriting" in prompt
 
 
 def test_face_close_gate_requests_a_face_only_target_box(monkeypatch, tmp_path) -> None:

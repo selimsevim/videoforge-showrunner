@@ -384,8 +384,17 @@ class QwenCloudProvider(ShowrunnerProvider):
     def _image_payload(self, request: ProviderImageRequest) -> dict[str, Any]:
         content: list[dict[str, str]] = []
         prompt = request.prompt
-        negative_prompt = request.negative_prompt
+        critical_negatives: list[str] = []
         visual_target = request.framing_target or ""
+        direction_text = " ".join(
+            (request.prompt, request.image_delta or "", visual_target)
+        )
+        photo_named = bool(
+            re.search(r"\b(polaroid|photo|photograph|print)\b", direction_text, re.IGNORECASE)
+        )
+        face_up_photo = photo_named and bool(
+            re.search(r"\bface[- ]up\b", direction_text, re.IGNORECASE)
+        )
         family = framing_family(request.framing or "")
         hand_led = bool(
             re.search(
@@ -395,14 +404,19 @@ class QwenCloudProvider(ShowrunnerProvider):
             )
         ) or family == "over-shoulder"
         if hand_led:
-            negative_prompt += (
-                ", extra fingers, duplicated fingers, fused fingers, malformed hands, "
+            critical_negatives.append(
+                "extra fingers, duplicated fingers, fused fingers, malformed hands, "
                 "duplicated hands, wrong jewelry"
             )
         if family == "over-shoulder":
-            negative_prompt += (
-                ", second live person, duplicate woman, frontal double, face-to-face two-shot, "
+            critical_negatives.append(
+                "second live person, duplicate woman, frontal double, face-to-face two-shot, "
                 "two live women"
+            )
+        if face_up_photo:
+            critical_negatives.append(
+                "handwriting, caption, date stamp, label, letters, numbers, symbols, gibberish, "
+                "or printed text on the Polaroid's front white border"
             )
         if request.reference_image_url:
             content.append({"image": request.reference_image_url})
@@ -425,12 +439,14 @@ class QwenCloudProvider(ShowrunnerProvider):
                 )
             )
             if family == "pov":
-                negative_prompt += (
-                    ", visible woman, person, face, head, torso, legs, full body, external view, "
+                critical_negatives.append(
+                    "visible woman, person, face, head, torso, legs, full body, external view, "
                     "third-person camera"
                 )
             elif family == "detail":
-                negative_prompt += ", face, head, torso, full body, portrait, room overview"
+                critical_negatives.append(
+                    "face, head, torso, full body, portrait, room overview"
+                )
             prompt = (
                 identity_rule
                 + (
@@ -452,6 +468,9 @@ class QwenCloudProvider(ShowrunnerProvider):
                 "insert, detail, over-the-shoulder, or POV shot.\n" + prompt
             )
         content.append({"text": prompt})
+        negative_prompt = ", ".join(
+            [*critical_negatives, request.negative_prompt]
+        )[:500]
         return {
             "model": (
                 self.settings.qwen_image_edit_model
@@ -707,6 +726,19 @@ class QwenCloudProvider(ShowrunnerProvider):
             and re.search(r"\b(face|facial|eyes|expression)\b", target, re.IGNORECASE)
             else ""
         )
+        face_up_border_rule = (
+            " The face-up Polaroid's front white border must be blank and physically clean. "
+            "Reject any handwriting, caption, date stamp, label, letters, numbers, symbols, "
+            "or gibberish on that front border. Content inside the photographic image area is "
+            "allowed."
+            if re.search(r"\b(polaroid|photo|photograph|print)\b", target, re.IGNORECASE)
+            and re.search(
+                r"\bface[- ]up\b",
+                " ".join((request.prompt, request.image_delta or "")),
+                re.IGNORECASE,
+            )
+            else ""
+        )
         crop_instruction = (
             "If the current frame violates the contract but a tight 16:9 crop of existing "
             "pixels can satisfy every requirement, return that crop. The crop must contain the "
@@ -731,7 +763,7 @@ class QwenCloudProvider(ShowrunnerProvider):
                     "whenever it exists, even when no compliant crop seems possible. "
                     f"{crop_instruction} "
                     f"FRAMING CONTRACT: {contract}.{prop_scale_rule}{hand_anatomy_rule}"
-                    f"{face_close_rule} "
+                    f"{face_close_rule}{face_up_border_rule} "
                     f"SHOT DIRECTION: {request.image_delta or ''}"
                 ),
             },
