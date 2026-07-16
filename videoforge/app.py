@@ -364,13 +364,9 @@ def create_app(
         master = _reference_master(project)
         reference_url = None
         reference_shot_id = None
-        if selected_provider.name == "qwen":
+        if selected_provider.name == "qwen" and shot["id"] != master["id"]:
             reference = database.latest_asset(project_id, master["id"], "image")
             if not reference or not reference["remoteUrl"]:
-                if shot["id"] == master["id"]:
-                    raise ValueError(
-                        "The continuity master has no active Qwen source for a precise edit"
-                    )
                 raise ValueError("The continuity master must be regenerated first")
             reference_url = reference["remoteUrl"]
             reference_shot_id = master["id"]
