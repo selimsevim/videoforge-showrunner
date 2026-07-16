@@ -14,12 +14,12 @@ def framing_family(framing: str) -> str:
         return "over-shoulder"
     if any(token in value for token in ("point of view", "pov", "subjective")):
         return "pov"
+    if "medium" in value:
+        return "medium"
     if "close" in value:
         return "close"
     if any(token in value for token in ("wide", "master", "full room", "establish")):
         return "wide"
-    if "medium" in value:
-        return "medium"
     return "other"
 
 

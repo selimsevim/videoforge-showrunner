@@ -246,6 +246,7 @@ def test_visibility_contract_enforces_actual_crop_without_prescribing_order() ->
     assert "Only the photograph and two fingertips" in detail
     assert "TRUE FIRST-PERSON POV" in pov
     assert "face, head, torso, and full body cannot appear" in pov
+    assert framing_family("Medium close-up (hands and pillow)") == "medium"
 
 
 def test_photo_detail_contract_allows_printed_subject_but_not_live_actor() -> None:

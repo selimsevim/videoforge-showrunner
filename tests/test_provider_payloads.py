@@ -49,6 +49,25 @@ def test_qwen_provider_constructs_proven_requests_without_calling_api(monkeypatc
     assert "frame_rate" not in video["parameters"]
 
 
+def test_hand_led_image_payload_adds_anatomy_negative_prompt(monkeypatch) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+    payload = provider._image_payload(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-02",
+            prompt="Medium shot of a hand and pillow.",
+            negative_prompt="wide room",
+            seed=12,
+            framing="Medium close-up",
+            framing_target="Elena's left hand and the top pillow",
+        )
+    )
+    assert "extra fingers" in payload["parameters"]["negative_prompt"]
+    assert "wrong jewelry" in payload["parameters"]["negative_prompt"]
+
+
 def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
     raw = {
         "title": "Dynamic order",
@@ -292,6 +311,7 @@ def test_framing_gate_uses_visual_target_and_rechecks_crop(monkeypatch, tmp_path
     assert "The Polaroid on the bedsheet" in first_prompt
     assert "3.5 by 4.25 inch print" in first_prompt
     assert "nearby camera may make the physical print" in first_prompt
+    assert "anatomically plausible" not in first_prompt
     assert "already been cropped once" in second_prompt
 
 

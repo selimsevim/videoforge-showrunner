@@ -385,6 +385,12 @@ class QwenCloudProvider(ShowrunnerProvider):
         content: list[dict[str, str]] = []
         prompt = request.prompt
         negative_prompt = request.negative_prompt
+        visual_target = request.framing_target or ""
+        if re.search(r"\b(hand|hands|finger|fingers|fingertip|fingertips)\b", visual_target, re.IGNORECASE):
+            negative_prompt += (
+                ", extra fingers, duplicated fingers, fused fingers, malformed hands, "
+                "duplicated hands, wrong jewelry"
+            )
         if request.reference_image_url:
             content.append({"image": request.reference_image_url})
             composition_guide = self._composition_guide(request)
@@ -637,6 +643,20 @@ class QwenCloudProvider(ShowrunnerProvider):
             if re.search(r"\b(polaroid|photo|photograph)\b", target, re.IGNORECASE)
             else ""
         )
+        hand_anatomy_rule = (
+            " The declared live hand must be anatomically plausible, with five digits total "
+            "unless a digit is naturally occluded. Reject extra, duplicated, stacked, fused, "
+            "forked, or malformed fingers; duplicated hands; impossible joints; and jewelry on "
+            "the wrong finger. Elena's only jewelry is one thin silver ring on her left ring "
+            "finger. Printed hands inside a physical photograph are prop content and are not "
+            "counted as live hands."
+            if re.search(
+                r"\b(hand|hands|finger|fingers|fingertip|fingertips)\b",
+                target,
+                re.IGNORECASE,
+            )
+            else ""
+        )
         crop_instruction = (
             "If the current frame violates the contract but a tight 16:9 crop of existing "
             "pixels can satisfy every requirement, return that crop. The crop must contain the "
@@ -660,7 +680,7 @@ class QwenCloudProvider(ShowrunnerProvider):
                     "0..1000 coordinates). targetBox must tightly locate the named visual target "
                     "whenever it exists, even when no compliant crop seems possible. "
                     f"{crop_instruction} "
-                    f"FRAMING CONTRACT: {contract}.{prop_scale_rule} "
+                    f"FRAMING CONTRACT: {contract}.{prop_scale_rule}{hand_anatomy_rule} "
                     f"SHOT DIRECTION: {request.image_delta or ''}"
                 ),
             },
