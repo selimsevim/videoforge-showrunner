@@ -233,7 +233,8 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
                 visibility_action = re.compile(
                     r"\b(reveal\w*|uncover\w*|expose\w*|hide\w*|conceal\w*|remove\w*)\b|"
                     r"\b(pull\w*|lift\w*|take\w*|slide\w*)\b.{0,40}"
-                    r"\b(from|under|beneath|behind|off[- ]?screen|into view)\b",
+                    r"\b(from|under|beneath|behind|off[- ]?screen|into view)\b|"
+                    r"\blift\w*\b.{0,20}\b(pillow|blanket|sweater|duvet|cloth|cover|book)\b",
                     re.IGNORECASE,
                 )
                 if not visibility_action.search(shot.subject_action):
