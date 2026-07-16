@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
 import threading
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -103,6 +104,63 @@ class JobRunner:
                     return
             time.sleep(0.02)
         raise TimeoutError(f"project jobs did not settle in {timeout}s")
+
+    def reprocess_failed_image(self, job_id: str) -> dict[str, Any]:
+        job = self.database.get_job(job_id)
+        if job["kind"] != "image" or job["status"] != JobStatus.FAILED:
+            raise ValueError("Only a failed image job can be reframed")
+        if job["errorCode"] != "FRAMING_VALIDATION_FAILED":
+            raise ValueError("Only a framing-validation failure can be reframed")
+        request = ProviderImageRequest.model_validate(job["payload"])
+        source_path = (
+            self.settings.asset_root
+            / request.project_id
+            / "images"
+            / f"{request.shot_id}-{job_id[-6:]}.png"
+        )
+        if not source_path.is_file():
+            raise FileNotFoundError(f"failed image source is missing: {source_path}")
+        working_path = source_path.with_name(f"{source_path.stem}-reframe.png")
+        shutil.copy2(source_path, working_path)
+        try:
+            result = self.provider.reframe_existing_image(request, working_path)
+            working_path.replace(source_path)
+        finally:
+            working_path.unlink(missing_ok=True)
+        with Image.open(source_path) as image:
+            width, height = image.size
+        local_url = self._asset_url(source_path)
+        self.database.create_asset(
+            project_id=request.project_id,
+            shot_id=request.shot_id,
+            kind="image",
+            local_path=str(source_path),
+            local_url=local_url,
+            remote_url=None,
+            prompt_hash=prompt_hash(request.prompt),
+            sha256=result.get("sha256") or self._sha256(source_path),
+            metadata={
+                "model": job["model"],
+                "seed": request.seed,
+                "width": width,
+                "height": height,
+                "framingCheck": result.get("framing_check"),
+                "prompt": request.prompt,
+                "promptHash": prompt_hash(request.prompt),
+                "status": "completed-after-local-reframe",
+            },
+        )
+        self.database.approve_image(request.project_id, request.shot_id, False)
+        self.database.update_job(
+            job_id,
+            status=JobStatus.COMPLETED,
+            error_code=None,
+            error_message=None,
+            completed_at=utc_now(),
+            output_url=local_url,
+        )
+        self._refresh_project_stage(request.project_id, "image")
+        return self.database.get_job(job_id)
 
     def _run(self, job_id: str) -> None:
         try:

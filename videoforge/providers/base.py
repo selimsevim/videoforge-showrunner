@@ -44,6 +44,14 @@ class ShowrunnerProvider(ABC):
         self, request: ProviderImageRequest, output_path: Path
     ) -> dict[str, Any]: ...
 
+    def reframe_existing_image(
+        self, request: ProviderImageRequest, output_path: Path
+    ) -> dict[str, Any]:
+        raise ProviderError(
+            "This provider cannot reframe an existing generated image",
+            code="REFRAME_UNSUPPORTED",
+        )
+
     @abstractmethod
     def generate_video(self, request: ProviderVideoRequest) -> dict[str, Any]: ...
 

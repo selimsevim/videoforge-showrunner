@@ -568,6 +568,14 @@ class QwenCloudProvider(ShowrunnerProvider):
             decision["postProcessed"] = False
             return decision
         crop_box = decision["cropBox"]
+        if (
+            not self._valid_crop_box(crop_box)
+            and family in {"medium", "close", "detail"}
+            and self._valid_crop_box(decision["targetBox"])
+        ):
+            crop_box = decision["targetBox"]
+            decision["cropBox"] = crop_box
+            decision["targetFallbackCrop"] = True
         if not self._valid_crop_box(crop_box):
             raise ProviderError(
                 f"Generated {request.shot_id} violates its {family} framing contract and "
@@ -587,6 +595,15 @@ class QwenCloudProvider(ShowrunnerProvider):
         decision["postProcessed"] = True
         decision["cropVerification"] = verification
         return decision
+
+    def reframe_existing_image(
+        self, request: ProviderImageRequest, output_path: Path
+    ) -> dict[str, Any]:
+        framing_check = self._framing_check(request, output_path)
+        return {
+            "framing_check": framing_check,
+            "sha256": hashlib.sha256(output_path.read_bytes()).hexdigest(),
+        }
 
     def _inspect_framing(
         self,

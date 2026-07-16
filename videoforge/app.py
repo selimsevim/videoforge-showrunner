@@ -398,6 +398,10 @@ def create_app(
         database.approve_image(project_id, shot_id, True)
         return database.get_project(project_id)
 
+    @app.post("/api/jobs/{job_id}/image/reframe")
+    def reframe_failed_image(job_id: str) -> dict[str, Any]:
+        return runner.reprocess_failed_image(job_id)
+
     def _video_job(project: dict[str, Any], shot: dict[str, Any], retry: int = 0) -> str:
         plan = ProductionPlan.model_validate(project["plan"])
         image = database.latest_asset(project["id"], shot["id"], "image")

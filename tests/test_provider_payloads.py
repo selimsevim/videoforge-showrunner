@@ -246,7 +246,7 @@ def test_framing_gate_uses_visual_target_and_rechecks_crop(monkeypatch, tmp_path
                                 "content": (
                                     '{"compliant":false,"reason":"too wide",'
                                     '"targetBox":[300,300,700,700],'
-                                    '"cropBox":[250,250,750,531.25]}'
+                                    '"cropBox":null}'
                                 )
                             }
                         }
@@ -287,6 +287,7 @@ def test_framing_gate_uses_visual_target_and_rechecks_crop(monkeypatch, tmp_path
     first_prompt = provider.client.calls[0][1]["json"]["messages"][0]["content"][0]["text"]
     second_prompt = provider.client.calls[1][1]["json"]["messages"][0]["content"][0]["text"]
     assert decision["postProcessed"] is True
+    assert decision["targetFallbackCrop"] is True
     assert decision["cropVerification"]["compliant"] is True
     assert "The Polaroid on the bedsheet" in first_prompt
     assert "3.5 by 4.25 inch print" in first_prompt
