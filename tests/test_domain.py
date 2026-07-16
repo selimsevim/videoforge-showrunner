@@ -195,7 +195,7 @@ def test_cinematography_validator_requires_variety_without_fixed_order() -> None
                     update={
                         "framing": framings[index],
                         "subject_action": f"progressive action {index}",
-                        "prop_state": f"progressive prop state {index}",
+                        "prop_state": f"progressive prop state {index % 3}",
                         "image_delta": f"unique visual direction {index}",
                     }
                 )
