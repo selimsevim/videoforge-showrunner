@@ -60,6 +60,8 @@ def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
                 "durationSeconds": 9,
                 "imageSeed": -1,
                 "videoSeed": 23,
+                "imagePrompt": "",
+                "motionPrompt": " ",
             },
             {
                 "id": "also-wrong",
@@ -93,6 +95,8 @@ def test_qwen_plan_normalization_changes_only_technical_fields() -> None:
         == normalized["shots"][1]["imageSeed"]
     )
     assert normalized["shots"][0]["videoSeed"] == 23
+    assert normalized["shots"][0]["imagePrompt"] == "pending compilation"
+    assert normalized["shots"][0]["motionPrompt"] == "pending compilation"
 
 
 def test_qwen_image_edit_payload_uses_canonical_reference(monkeypatch) -> None:

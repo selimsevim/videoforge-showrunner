@@ -109,6 +109,14 @@ class QwenCloudProvider(ShowrunnerProvider):
             shot["order"] = order
             shot["durationSeconds"] = duration
             shot["imageSeed"] = shared_image_seed
+            if not isinstance(shot.get("imagePrompt"), str) or len(
+                shot["imagePrompt"].strip()
+            ) < 3:
+                shot["imagePrompt"] = "pending compilation"
+            if not isinstance(shot.get("motionPrompt"), str) or len(
+                shot["motionPrompt"].strip()
+            ) < 3:
+                shot["motionPrompt"] = "pending compilation"
             seed = shot.get("videoSeed")
             if not isinstance(seed, int) or not 0 <= seed <= 2**31 - 1:
                 shot["videoSeed"] = deterministic_seed(project_id, order, "video")
