@@ -7,4 +7,5 @@ data/
 smoke-output/
 output/playwright/
 output/
+checkpoints/**/*.sqlite
 .DS_Store
