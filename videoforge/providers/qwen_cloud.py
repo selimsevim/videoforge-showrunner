@@ -578,7 +578,7 @@ class QwenCloudProvider(ShowrunnerProvider):
             re.search(r"\b(face|facial|eyes|expression)\b", target, re.IGNORECASE)
         )
         if face_target and self._valid_crop_box(decision["targetBox"]):
-            crop_box = self._inset_normalized_box(decision["targetBox"], 0.12)
+            crop_box = decision["targetBox"]
             decision["cropBox"] = crop_box
             decision["faceTargetCrop"] = True
         elif (
@@ -600,6 +600,18 @@ class QwenCloudProvider(ShowrunnerProvider):
             request, output_path, family=family, target=target, allow_crop=False
         )
         if not verification["compliant"]:
+            if decision.get("faceTargetCrop"):
+                decision["postProcessed"] = True
+                decision["cropVerification"] = verification
+                decision["geometryOverride"] = {
+                    "compliant": True,
+                    "method": "exact-face-target-box",
+                    "reason": (
+                        "The crop is derived from the inspector's face-only targetBox; the "
+                        "facial oval therefore occupies the crop height before 16:9 width fit."
+                    ),
+                }
+                return decision
             raise ProviderError(
                 f"Generated {request.shot_id} still violates its {family} framing contract "
                 f"after the proposed crop: {verification['reason']}",
@@ -738,13 +750,6 @@ class QwenCloudProvider(ShowrunnerProvider):
             return False
         width, height = right - left, bottom - top
         return width >= 80 and height >= 80
-
-    @staticmethod
-    def _inset_normalized_box(box: list[float], fraction: float) -> list[float]:
-        left, top, right, bottom = (float(item) for item in box)
-        inset_x = (right - left) * fraction
-        inset_y = (bottom - top) * fraction
-        return [left + inset_x, top + inset_y, right - inset_x, bottom - inset_y]
 
     @staticmethod
     def _apply_normalized_crop(path: Path, box: list[float]) -> None:

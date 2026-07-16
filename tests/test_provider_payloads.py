@@ -234,15 +234,6 @@ def test_normalized_crop_preserves_output_size(tmp_path) -> None:
         assert result.size == (1920, 1080)
 
 
-def test_face_crop_inset_removes_vision_padding() -> None:
-    assert QwenCloudProvider._inset_normalized_box([100, 200, 900, 800], 0.16) == [
-        228.0,
-        296.0,
-        772.0,
-        704.0,
-    ]
-
-
 def test_face_crop_ignores_a_broad_proposed_crop(monkeypatch, tmp_path) -> None:
     monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
     monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
@@ -281,7 +272,50 @@ def test_face_crop_ignores_a_broad_proposed_crop(monkeypatch, tmp_path) -> None:
         path,
     )
     assert decision["faceTargetCrop"] is True
-    assert decision["cropBox"] == [348.0, 196.0, 652.0, 804.0]
+    assert decision["cropBox"] == [300, 100, 700, 900]
+
+
+def test_face_crop_records_geometry_override_when_recheck_hallucinates(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+
+    class StubClient:
+        def __init__(self) -> None:
+            self.responses = [
+                (
+                    '{"compliant":false,"reason":"too wide",'
+                    '"targetBox":[300,100,700,900],"cropBox":null}'
+                ),
+                (
+                    '{"compliant":false,"reason":"incorrectly reports old wide frame",'
+                    '"targetBox":[300,100,700,900],"cropBox":null}'
+                ),
+            ]
+
+        def request_json(self, *args, **kwargs):
+            content = self.responses.pop(0)
+            return {"choices": [{"message": {"content": content}}]}
+
+    provider.client = StubClient()
+    path = tmp_path / "face-hallucination.png"
+    Image.new("RGB", (1920, 1080), "black").save(path)
+    decision = provider._framing_check(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-04",
+            prompt="Tight face.",
+            negative_prompt="wide room",
+            seed=4,
+            framing="Close-up (tight on face)",
+            framing_target="Elena's face",
+        ),
+        path,
+    )
+    assert decision["cropVerification"]["compliant"] is False
+    assert decision["geometryOverride"]["method"] == "exact-face-target-box"
 
 
 def test_provider_image_request_tracks_visual_target_separately_from_body() -> None:
