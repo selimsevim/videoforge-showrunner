@@ -46,9 +46,9 @@ def test_prompt_compiler_reuses_immutable_bible_verbatim() -> None:
     assert all(shot.image_prompt.startswith(prefix + "\n") for shot in production.shots)
     assert all("SHOT_COMPOSITION:" in shot.image_prompt for shot in production.shots)
     assert all("SHOT_START_STATE:" in shot.image_prompt for shot in production.shots)
-    assert all("SHOT_ACTION_AFTER_FIRST_FRAME:" in shot.image_prompt for shot in production.shots)
-    assert all("SHOT_END_STATE_DO_NOT_SHOW_YET:" in shot.image_prompt for shot in production.shots)
-    assert all("SHOT_PROP_STATE:" in shot.image_prompt for shot in production.shots)
+    assert all("SHOT_ACTION_AFTER_FIRST_FRAME:" not in shot.image_prompt for shot in production.shots)
+    assert all("SHOT_END_STATE_DO_NOT_SHOW_YET:" not in shot.image_prompt for shot in production.shots)
+    assert all("SHOT_PROP_STATE_AT_START:" in shot.image_prompt for shot in production.shots)
     assert all("FRAME_VISIBILITY_CONTRACT:" in shot.image_prompt for shot in production.shots)
     assert len({shot.image_prompt for shot in production.shots}) == len(production.shots)
 
@@ -61,6 +61,9 @@ def test_motion_prompt_is_one_action_with_explicit_state_handoff() -> None:
     assert "No additional gestures" in first.motion_prompt
     assert first.end_state == second.start_state
     assert practical_motion_issues(production) == []
+    assert first.start_state.startswith("BODY:")
+    assert "| HANDS:" in first.start_state
+    assert "| PROP:" in first.start_state
 
 
 def test_practical_motion_validator_rejects_poetic_or_multi_action_direction() -> None:
@@ -82,6 +85,22 @@ def test_practical_motion_validator_rejects_poetic_or_multi_action_direction() -
     assert any("multiple actions" in issue for issue in issues)
     assert any("nonessential environment motion" in issue for issue in issues)
     assert any("impractical camera" in issue for issue in issues)
+
+
+def test_practical_motion_validator_rejects_first_frame_ledger_conflicts() -> None:
+    production = plan()
+    broken_first = production.shots[0].model_copy(
+        update={
+            "subject_position": "Mara is already crouching",
+            "prop_state": "The Polaroid is already in her hand",
+        }
+    )
+    broken = production.model_copy(
+        update={"shots": [broken_first, *production.shots[1:]]}
+    )
+    issues = practical_motion_issues(broken)
+    assert any("subjectPosition must exactly equal startState BODY" in issue for issue in issues)
+    assert any("propState must exactly equal startState PROP" in issue for issue in issues)
 
 
 def test_visibility_contract_enforces_actual_crop_without_prescribing_order() -> None:
@@ -188,15 +207,26 @@ def test_cinematography_validator_requires_variety_without_fixed_order() -> None
         "medium profile",
         "subjective POV",
     ]
+    start_states = [
+        shot.start_state.rsplit("| PROP:", 1)[0]
+        + f"| PROP: progressive prop state {index % 3}"
+        for index, shot in enumerate(production.shots)
+    ]
     varied = production.model_copy(
         update={
             "shots": [
                 shot.model_copy(
-                    update={
-                        "framing": framings[index],
-                        "subject_action": f"progressive action {index}",
-                        "prop_state": f"progressive prop state {index % 3}",
-                        "image_delta": f"unique visual direction {index}",
+                        update={
+                            "framing": framings[index],
+                            "subject_action": f"progressive action {index}",
+                            "prop_state": f"progressive prop state {index % 3}",
+                            "start_state": start_states[index],
+                            "end_state": (
+                                start_states[index + 1]
+                                if index + 1 < len(start_states)
+                                else shot.end_state
+                            ),
+                            "image_delta": f"unique visual direction {index}",
                     }
                 )
                 for index, shot in enumerate(production.shots)

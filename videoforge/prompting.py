@@ -36,17 +36,18 @@ def compile_image_prompt(bible: VisualBible, shot: ShotPlan) -> str:
         f"SHOT_PRIMARY_SUBJECT: {shot.primary_subject}",
         f"SHOT_FRAMING_REASON: {shot.framing_reason}",
         f"SHOT_START_STATE: {shot.start_state}",
-        f"SHOT_ACTION_AFTER_FIRST_FRAME: {shot.subject_action}",
-        f"SHOT_END_STATE_DO_NOT_SHOW_YET: {shot.end_state}",
         f"SHOT_ENVIRONMENT_STATE: {shot.environment_state}",
-        f"SHOT_PROP_STATE: {shot.prop_state}",
-        f"SHOT_IMAGE_DELTA: {shot.image_delta}",
+        f"SHOT_PROP_STATE_AT_START: {shot.prop_state}",
+        (
+            "SHOT_FIRST_FRAME_DIRECTION: Render only the declared composition, "
+            "SHOT_START_STATE, and SHOT_PROP_STATE_AT_START."
+        ),
         "FRAME_VISIBILITY_CONTRACT: "
         + framing_visibility_contract(shot.framing, shot.subject_position),
         (
             "HARD_SHOT_CONSTRAINT: This keyframe is the first frame of a video. Render the "
-            "exact SHOT_START_STATE immediately before the action begins. Do not depict the "
-            "action in progress and do not reveal SHOT_END_STATE_DO_NOT_SHOW_YET. Do not "
+            "exact SHOT_START_STATE immediately before any action begins. No future action "
+            "or end state is included in this prompt; do not invent one. Do not "
             "default to a seated portrait. Keep the "
             "important prop at realistic hand-held scale; never enlarge it. Preserve the "
             "locked character and room while making this shot visibly distinct from the "

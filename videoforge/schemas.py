@@ -83,16 +83,32 @@ class ShotPlan(BaseModel):
     narrative_purpose: str = Field(alias="narrativePurpose", min_length=3)
     framing: str = Field(min_length=2)
     camera_angle: str = Field(alias="cameraAngle", min_length=2)
-    subject_position: str = Field(alias="subjectPosition", min_length=2)
+    subject_position: str = Field(
+        alias="subjectPosition",
+        min_length=2,
+        description="Exact BODY clause from startState; describes the first frame only.",
+    )
     primary_subject: str = Field(alias="primarySubject", default="")
     framing_reason: str = Field(alias="framingReason", default="")
-    start_state: str = Field(alias="startState", default="")
+    start_state: str = Field(
+        alias="startState",
+        default="",
+        description="First-frame ledger: BODY: ... | HANDS: ... | PROP: ...",
+    )
     subject_action: str = Field(alias="subjectAction", min_length=3)
-    end_state: str = Field(alias="endState", default="")
+    end_state: str = Field(
+        alias="endState",
+        default="",
+        description="Post-action ledger: BODY: ... | HANDS: ... | PROP: ...",
+    )
     environment_state: str = Field(alias="environmentState", min_length=3)
     environment_motion: str = Field(alias="environmentMotion", min_length=3)
     camera_motion: str = Field(alias="cameraMotion", min_length=3)
-    prop_state: str = Field(alias="propState", min_length=3)
+    prop_state: str = Field(
+        alias="propState",
+        min_length=3,
+        description="Exact PROP clause from startState; never the action's future result.",
+    )
     image_delta: str = Field(alias="imageDelta", min_length=3)
     image_prompt: str = Field(alias="imagePrompt", min_length=3)
     motion_prompt: str = Field(alias="motionPrompt", min_length=3)

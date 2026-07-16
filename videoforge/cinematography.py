@@ -117,13 +117,32 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
         re.IGNORECASE,
     )
     complex_connectors = re.compile(
-        r"\b(while|then|after|before|simultaneously|as she|as he|as they)\b|[;—]",
+        r"\b(and|while|then|after|before|simultaneously|as she|as he|as they)\b|[;—]",
         re.IGNORECASE,
     )
     camera_banned = re.compile(
         r"\b(rack focus|focus shift|micro|settle|orbit|shake|handheld|zoom)\b",
         re.IGNORECASE,
     )
+    allowed_camera = {
+        "static camera",
+        "slow push-in",
+        "slow pull-back",
+        "slow pan left",
+        "slow pan right",
+        "slow tilt up",
+        "slow tilt down",
+        "slow rise",
+        "slow lower",
+    }
+    state_pattern = re.compile(
+        r"^BODY:\s*(?P<body>.+?)\s*\|\s*HANDS:\s*(?P<hands>.+?)\s*"
+        r"\|\s*PROP:\s*(?P<prop>.+?)\s*$",
+        re.IGNORECASE,
+    )
+
+    def normalized(value: str) -> str:
+        return value.strip().casefold().rstrip(".")
 
     for shot in plan.shots:
         missing = [
@@ -140,11 +159,20 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
             issues.append(f"{shot.id} is missing practical fields: {', '.join(missing)}")
         if len(shot.subject_action.split()) > 18:
             issues.append(f"{shot.id} subjectAction exceeds 18 words")
-        if banned.search(
-            " ".join(
-                (shot.subject_action, shot.environment_motion, shot.camera_motion)
+        operational_direction = " ".join(
+            (
+                shot.framing_reason,
+                shot.start_state,
+                shot.subject_action,
+                shot.end_state,
+                shot.environment_state,
+                shot.environment_motion,
+                shot.camera_motion,
+                shot.prop_state,
+                shot.image_delta,
             )
-        ):
+        )
+        if banned.search(operational_direction):
             issues.append(f"{shot.id} contains poetic, sonic, or micro-atmospheric motion")
         if complex_connectors.search(shot.subject_action):
             issues.append(f"{shot.id} combines multiple actions instead of one physical action")
@@ -154,14 +182,32 @@ def practical_motion_issues(plan: ProductionPlan) -> list[str]:
             issues.append(
                 f"{shot.id} repeats subjectAction inside a state instead of describing positions"
             )
-        if shot.environment_motion.strip().lower().rstrip(".") not in {
-            "none",
-            "room remains still",
-            "environment remains still",
-        }:
+        if normalized(shot.environment_motion) != "none":
             issues.append(f"{shot.id} adds nonessential environment motion")
-        if camera_banned.search(shot.camera_motion):
+        if camera_banned.search(shot.camera_motion) or normalized(
+            shot.camera_motion
+        ) not in allowed_camera:
             issues.append(f"{shot.id} uses an impractical camera or focus instruction")
+
+        start_match = state_pattern.fullmatch(shot.start_state.strip())
+        end_match = state_pattern.fullmatch(shot.end_state.strip())
+        if not start_match:
+            issues.append(
+                f"{shot.id} startState must use BODY: ... | HANDS: ... | PROP: ..."
+            )
+        if not end_match:
+            issues.append(
+                f"{shot.id} endState must use BODY: ... | HANDS: ... | PROP: ..."
+            )
+        if start_match:
+            if normalized(shot.subject_position) != normalized(start_match.group("body")):
+                issues.append(
+                    f"{shot.id} subjectPosition must exactly equal startState BODY"
+                )
+            if normalized(shot.prop_state) != normalized(start_match.group("prop")):
+                issues.append(f"{shot.id} propState must exactly equal startState PROP")
+        if normalized(shot.start_state) == normalized(shot.end_state):
+            issues.append(f"{shot.id} action does not create a new physical endState")
 
     for previous, current in zip(plan.shots, plan.shots[1:]):
         if (

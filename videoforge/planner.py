@@ -87,6 +87,7 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 env_motion="None.",
                 camera="Static camera.",
                 prop="Polaroid face-up on the floor, its image not yet readable",
+                end_prop="Polaroid face-up on the floor, its image not yet readable",
                 delta=(
                     "medium-wide establishing shot, Mara right of centre beside the window, "
                     "looking down at the single Polaroid on the floor, doorway visible deep "
@@ -106,14 +107,14 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 state="same bedroom falls softly out of focus behind her",
                 env_motion="None.",
                 camera="Slow push-in.",
-                prop=(
-                    "the same Polaroid is upright in her right hand and visibly shows Mara "
+                prop="Polaroid face-up on the floor, its image not yet readable",
+                end_prop=(
+                    "The same Polaroid is upright in her right hand and visibly shows Mara "
                     "asleep on the same bed"
                 ),
                 delta=(
-                    "tight medium close-up from a slight over-shoulder angle, Mara holding "
-                    "the single Polaroid in her right hand, its image clearly depicts her "
-                    "sleeping on the same unmade bed, recognition and dread in her eyes"
+                    "tight medium close-up from a slight over-shoulder angle, Mara crouched "
+                    "with the single Polaroid still on the floor near her right hand"
                 ),
             ),
             dict(
@@ -130,8 +131,12 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 env_motion="None.",
                 camera="Static camera.",
                 prop=(
-                    "the same Polaroid remains in her raised right hand; inside its image, "
-                    "one indistinct human silhouette now stands behind the sleeping Mara"
+                    "The same Polaroid remains upright in her right hand and shows Mara "
+                    "asleep on the same bed"
+                ),
+                end_prop=(
+                    "The same Polaroid remains upright in her right hand and shows Mara "
+                    "asleep on the same bed"
                 ),
                 delta=(
                     "medium shot, Mara foreground left turning toward the dark doorway, "
@@ -182,6 +187,7 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 env_motion="None.",
                 camera="Static camera.",
                 prop="object rests on a nearby table",
+                end_prop="The object rests on the nearby table",
                 delta="medium-wide discovery composition with the object clearly visible",
             ),
             dict(
@@ -197,8 +203,9 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 state="same room softly out of focus",
                 env_motion="None.",
                 camera="Slow push-in.",
-                prop="same object held carefully in one hand",
-                delta="medium close-up emphasizing recognition and the unchanged object",
+                prop="The object rests on the nearby table",
+                end_prop="The same object is held carefully at eye level in one hand",
+                delta="medium close-up emphasizing the hands and the unchanged object",
             ),
             dict(
                 purpose="Reveal or resolve",
@@ -213,6 +220,7 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 env_motion="None.",
                 camera="Static camera.",
                 prop="same object remains visible and unchanged",
+                end_prop="The same object remains visible and unchanged",
                 delta="medium final reveal composition with controlled negative space",
             ),
         ]
@@ -236,6 +244,7 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                     env_motion="None.",
                     camera="Static camera.",
                     prop="the same important prop remains visible with unchanged design",
+                    end_prop="The same important prop remains visible with unchanged design",
                     delta=(
                         "controlled bridge composition in the same room, preserving the "
                         "protagonist, wardrobe, prop design, light direction, and palette"
@@ -251,10 +260,17 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
     previous_end = ""
     for index, raw in enumerate(raw_shots[: project.shot_count], 1):
         start_state = previous_end or (
-            "The protagonist is in the declared position with both hands visible; "
-            f"{raw['prop'].rstrip('.')}"
+            f"BODY: {raw['position'].rstrip('.')}. | "
+            "HANDS: Both hands are visible and still. | "
+            f"PROP: {raw['prop'].rstrip('.')}"
         )
-        end_state = raw["end"]
+        end_state = (
+            f"BODY: {raw['end'].rstrip('.')}. | "
+            "HANDS: Both hands hold the completed action position. | "
+            f"PROP: {raw['end_prop'].rstrip('.')}"
+        )
+        start_body = start_state.split("|", 1)[0].removeprefix("BODY:").strip()
+        start_prop = start_state.rsplit("| PROP:", 1)[-1].strip()
         shots.append(
             ShotPlan(
                 id=f"shot-{index:02d}",
@@ -262,10 +278,10 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 narrativePurpose=raw["purpose"],
                 framing=raw["framing"],
                 cameraAngle=raw["angle"],
-                subjectPosition=raw["position"],
+                subjectPosition=start_body,
                 primarySubject="the protagonist and the important prop",
                 framingReason=(
-                    f"This framing clearly shows the physical action for {raw['purpose'].lower()}."
+                    "This framing clearly shows the named physical action and primary subject."
                 ),
                 startState=start_state,
                 subjectAction=raw["action"],
@@ -273,7 +289,7 @@ def create_mock_plan(project_id: str, project: ProjectInput) -> ProductionPlan:
                 environmentState=raw["state"],
                 environmentMotion=raw["env_motion"],
                 cameraMotion=raw["camera"],
-                propState=raw["prop"],
+                propState=start_prop,
                 imageDelta=raw["delta"],
                 imagePrompt="pending compilation",
                 motionPrompt="pending compilation",
