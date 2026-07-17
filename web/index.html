@@ -3,59 +3,54 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0b0d0e" />
-    <title>VideoForge Showrunner</title>
+    <title>VideoForge — Call Sheet</title>
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
     <div class="app-shell">
-      <aside class="sidebar">
-        <div class="brand-block">
-          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
-          <div>
-            <strong>VideoForge</strong>
-            <small>AI SHOWRUNNER</small>
-          </div>
-        </div>
-
-        <nav class="stage-nav" aria-label="Production stages">
-          <button class="stage-link active" data-view="concept">
-            <span class="stage-index">01</span><span>Concept</span><i></i>
-          </button>
-          <button class="stage-link" data-view="plan">
-            <span class="stage-index">02</span><span>Plan</span><i></i>
-          </button>
-          <button class="stage-link" data-view="storyboard">
-            <span class="stage-index">03</span><span>Storyboard</span><i></i>
-          </button>
-          <button class="stage-link" data-view="production">
-            <span class="stage-index">04</span><span>Production</span><i></i>
-          </button>
-          <button class="stage-link" data-view="final">
-            <span class="stage-index">05</span><span>Final Cut</span><i></i>
-          </button>
-        </nav>
-
-        <div class="sidebar-footer">
-          <div class="provider-chip"><span class="status-dot"></span><span id="provider-label">Loading provider</span></div>
-          <p>Keyframe-first continuity<br />Qwen Image + Wan 2.7</p>
-        </div>
-      </aside>
-
       <main class="workspace">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow" id="project-kicker">NEW PRODUCTION</p>
-            <h1 id="project-heading">Create a short film</h1>
-          </div>
-          <div class="topbar-meta">
-            <div class="meta-item"><span>STAGE</span><strong id="stage-label">DRAFT</strong></div>
-            <div class="meta-item"><span>SAVED</span><strong id="saved-label">—</strong></div>
-            <div class="budget-meter">
-              <span>EST. BUDGET</span>
-              <strong id="budget-label">— CNY</strong>
+        <header class="document-header">
+          <div class="masthead">
+            <div class="call-sheet-name">VIDEOFORGE — CALL SHEET</div>
+            <div class="project-title-block">
+              <span class="visually-hidden" id="project-kicker">NEW PRODUCTION</span>
+              <h1 id="project-heading">Create a short film</h1>
             </div>
+          </div>
+
+          <nav class="stage-nav" aria-label="Production stages">
+            <button class="stage-link active" data-view="concept">
+              <span class="stage-index">1.</span><span>CONCEPT</span>
+            </button>
+            <button class="stage-link" data-view="plan">
+              <span class="stage-index">2.</span><span>PLAN</span>
+            </button>
+            <button class="stage-link" data-view="storyboard">
+              <span class="stage-index">3.</span><span>STORYBOARD</span>
+            </button>
+            <button class="stage-link" data-view="production">
+              <span class="stage-index">4.</span><span>PRODUCTION</span>
+            </button>
+            <button class="stage-link" data-view="final">
+              <span class="stage-index">5.</span><span>FINAL CUT</span>
+            </button>
+          </nav>
+
+          <div class="topbar-meta" aria-label="Production metadata">
+            <div class="meta-item"><span>STAGE:</span> <strong id="stage-label">DRAFT</strong></div>
+            <span class="meta-separator" aria-hidden="true">·</span>
+            <div class="meta-item"><span>SAVED:</span> <strong id="saved-label">—</strong></div>
+            <span class="meta-separator" aria-hidden="true">·</span>
+            <div class="budget-meter"><span>EST. BUDGET:</span> <strong id="budget-label">— CNY</strong></div>
+            <span class="meta-separator" aria-hidden="true">·</span>
+            <div class="provider-chip"><span>PROVIDER:</span> <strong id="provider-label">LOADING PROVIDER</strong></div>
           </div>
         </header>
 
