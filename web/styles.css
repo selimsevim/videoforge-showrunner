@@ -6,7 +6,7 @@
   --faded: #9b958a;
   --stamp: #c0392b;
   --paper-dim: #ece8df;
-  --muted: var(--faded);
+  --muted: var(--ink);
   font-family: "Courier Prime", "Courier New", ui-monospace, monospace;
   font-synthesis: none;
 }
@@ -30,9 +30,9 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: "Courier Prime", "Courier New", ui-monospace, monospace;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
-  line-height: 1.6;
+  line-height: 1.72;
 }
 
 button,
@@ -191,8 +191,8 @@ summary,
   align-items: baseline;
   gap: 7px;
   padding: 8px 0;
-  color: var(--faded);
-  font-size: 10px;
+  color: var(--ink);
+  font-size: 11px;
 }
 
 .meta-item,
@@ -238,7 +238,7 @@ summary,
 }
 
 .view {
-  padding: 32px 0 0;
+  padding: 38px 0 0;
 }
 
 .page-intro {
@@ -246,25 +246,26 @@ summary,
   align-items: end;
   justify-content: space-between;
   gap: 28px;
-  margin-bottom: 28px;
-  padding-bottom: 16px;
+  margin-bottom: 34px;
+  padding-bottom: 20px;
   border-bottom: 2px solid var(--ink);
 }
 
 .page-intro h2 {
   margin: 3px 0 7px;
   font-size: clamp(20px, 3vw, 28px);
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 .page-intro p {
-  max-width: 720px;
+  max-width: 68ch;
   margin: 0;
-  color: var(--faded);
+  color: var(--ink);
+  line-height: 1.72;
 }
 
 .section-kicker {
-  color: var(--faded);
+  color: var(--ink);
   font-size: 10px;
   font-weight: 700;
 }
@@ -272,7 +273,7 @@ summary,
 .concept-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr);
-  gap: 28px;
+  gap: 36px;
   align-items: start;
 }
 
@@ -316,22 +317,28 @@ summary,
 
 .panel-header p {
   margin: 2px 0 0;
-  color: var(--faded);
-  font-size: 10px;
+  max-width: 68ch;
+  color: var(--ink);
+  font-size: 11px;
 }
 
 .panel-body {
-  padding: 16px 0;
+  padding: 20px 0;
 }
 
 .panel > .panel-body:first-child {
   border-top: 2px solid var(--ink);
 }
 
+.panel > .panel-body:first-child h3 {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 22px;
+  gap: 24px 28px;
 }
 
 .field-grid.three {
@@ -353,7 +360,7 @@ summary,
 }
 
 .field label em {
-  color: var(--faded);
+  color: var(--ink);
   font-style: normal;
   font-weight: 400;
   letter-spacing: .08em;
@@ -364,7 +371,7 @@ summary,
 .field select,
 .field textarea {
   width: 100%;
-  padding: 8px 2px 6px;
+  padding: 10px 4px 8px;
   border: 0;
   border-bottom: 1px solid var(--ink);
   outline: 0;
@@ -375,7 +382,7 @@ summary,
 
 .field textarea {
   min-height: 112px;
-  line-height: 1.6;
+  line-height: 1.72;
   resize: vertical;
 }
 
@@ -392,13 +399,13 @@ summary,
 .field input[readonly],
 .field textarea[readonly] {
   background: var(--paper-dim);
-  color: var(--faded);
+  color: var(--ink);
 }
 
 .char-count {
   margin-top: 5px;
-  color: var(--faded);
-  font-size: 10px;
+  color: var(--ink);
+  font-size: 11px;
   text-align: right;
 }
 
@@ -407,7 +414,7 @@ summary,
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 24px;
 }
 
 .button-row.split {
@@ -422,11 +429,11 @@ summary,
 
 .btn {
   min-height: 34px;
-  padding: 8px 16px;
+  padding: 9px 16px;
   border: 1px solid var(--ink);
   background: transparent;
   color: var(--ink);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   transition: opacity 100ms steps(1, end), border-color 100ms steps(1, end);
 }
@@ -467,8 +474,8 @@ summary,
 }
 
 .paid-note {
-  color: var(--faded);
-  font-size: 10px;
+  color: var(--ink);
+  font-size: 11px;
 }
 
 .paid-note strong {
@@ -491,11 +498,14 @@ summary,
 .strategy-panel h3 {
   margin: 0 0 8px;
   font-size: 17px;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .strategy-panel > p {
   margin: 0 0 18px;
-  color: var(--faded);
+  max-width: 68ch;
+  color: var(--ink);
 }
 
 .pipeline {
@@ -506,8 +516,8 @@ summary,
   display: grid;
   grid-template-columns: 1fr;
   padding: 9px 0;
-  border-bottom: 1px dotted var(--ink);
-  color: var(--faded);
+  border-bottom: 1px dotted var(--faded);
+  color: var(--ink);
 }
 
 .pipeline-step strong {
@@ -530,8 +540,8 @@ summary,
 .plan-summary {
   display: grid;
   grid-template-columns: 1.2fr .8fr;
-  gap: 28px;
-  margin-bottom: 28px;
+  gap: 36px;
+  margin-bottom: 34px;
 }
 
 .logline {
@@ -545,7 +555,7 @@ summary,
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--faded);
+  color: var(--ink);
   font-size: 10px;
 }
 
@@ -558,7 +568,7 @@ summary,
 .plan-sections,
 .shot-plan-list {
   display: grid;
-  gap: 22px;
+  gap: 30px;
 }
 
 .collapsible summary {
@@ -593,7 +603,7 @@ summary,
 .bible-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 22px;
+  gap: 24px 28px;
 }
 
 .shot-plan-list {
@@ -603,7 +613,7 @@ summary,
 .shot-plan-card {
   counter-increment: shot-plan;
   padding-bottom: 20px;
-  border-bottom: 1px dotted var(--ink);
+  border-bottom: 1px dotted var(--faded);
 }
 
 .shot-plan-head {
@@ -612,7 +622,7 @@ summary,
   justify-content: space-between;
   gap: 16px;
   padding: 0 0 9px;
-  border-bottom: 1px dotted var(--ink);
+  border-bottom: 1px dotted var(--faded);
 }
 
 .shot-number {
@@ -631,7 +641,7 @@ summary,
   counter-reset: shot-card;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 24px 20px;
+  gap: 34px 24px;
 }
 
 .storyboard-grid .shot-card,
@@ -646,32 +656,33 @@ summary,
 }
 
 .shot-purpose {
-  color: var(--faded);
-  font-size: 12px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .shot-plan-body {
-  padding: 16px 0 0;
+  padding: 22px 0 0;
 }
 
 .compiled-prompt {
-  max-height: 172px;
-  margin-top: 8px;
-  padding: 10px 0;
+  max-height: 154px;
+  margin-top: 10px;
+  padding: 12px 14px;
   overflow: auto;
-  border-top: 1px dotted var(--ink);
-  border-bottom: 1px dotted var(--ink);
-  background: transparent;
-  color: var(--faded);
-  font-size: 10px;
-  line-height: 1.6;
+  border-top: 1px dotted var(--faded);
+  border-bottom: 1px dotted var(--faded);
+  background: var(--paper-dim);
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.7;
   white-space: pre-wrap;
 }
 
 .shot-card {
   min-width: 0;
-  padding-bottom: 16px;
-  border-bottom: 1px dotted var(--ink);
+  padding-bottom: 22px;
+  border-bottom: 1px dotted var(--faded);
 }
 
 .shot-image {
@@ -709,14 +720,16 @@ summary,
   align-items: start;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 0 8px;
-  border-bottom: 1px dotted var(--ink);
+  padding: 14px 0 11px;
+  border-bottom: 1px dotted var(--faded);
 }
 
 .shot-card-head h3 {
   margin: 3px 0 0;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .shot-card-body {
@@ -724,26 +737,26 @@ summary,
 }
 
 .shot-card-body p {
-  color: var(--faded);
-  font-size: 11px;
+  color: var(--ink);
+  font-size: 12px;
 }
 
 .shot-meta {
   display: block;
-  margin: 10px 0;
+  margin: 14px 0;
 }
 
 .shot-meta div {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
-  padding: 5px 0;
-  border-bottom: 1px dotted var(--ink);
+  padding: 7px 0;
+  border-bottom: 1px dotted var(--faded);
 }
 
 .shot-meta span {
-  color: var(--faded);
-  font-size: 9px;
+  color: var(--ink);
+  font-size: 10px;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
@@ -751,7 +764,7 @@ summary,
 .shot-meta strong {
   overflow: hidden;
   color: var(--ink);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   text-align: right;
   text-overflow: ellipsis;
@@ -760,14 +773,15 @@ summary,
 
 .prompt-preview {
   display: -webkit-box;
-  padding: 6px 0 9px;
+  padding: 10px 12px;
   overflow: hidden;
-  border-bottom: 1px dotted var(--ink);
-  color: var(--faded) !important;
-  font-size: 10px !important;
-  line-height: 1.5;
+  border-bottom: 1px dotted var(--faded);
+  background: var(--paper-dim);
+  color: var(--ink) !important;
+  font-size: 11px !important;
+  line-height: 1.65;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 3;
 }
 
 .status-pill {
@@ -787,11 +801,11 @@ summary,
 
 .status-pill::after {
   content: "PENDING";
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .shot-plan-head .status-pill {
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .shot-plan-head .status-pill::after {
@@ -866,8 +880,8 @@ summary,
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  margin-top: 28px;
-  padding: 46px 18px 18px;
+  margin-top: 36px;
+  padding: 50px 20px 20px;
   border: 1px dashed var(--stamp);
   background: var(--paper);
 }
@@ -908,8 +922,9 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 
 .checkpoint p {
   margin: 0;
-  color: var(--faded);
-  font-size: 11px;
+  max-width: 68ch;
+  color: var(--ink);
+  font-size: 12px;
 }
 
 .progress-track {
@@ -954,8 +969,8 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 }
 
 .tech-list span {
-  color: var(--faded);
-  font-size: 9px;
+  color: var(--ink);
+  font-size: 10px;
 }
 
 .tech-list b {
@@ -976,7 +991,7 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 
 .report-score {
   padding: 4px 10px;
-  border-right: 1px dotted var(--ink);
+  border-right: 1px dotted var(--faded);
 }
 
 .report-score:last-of-type {
@@ -985,8 +1000,8 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 
 .report-score span {
   display: block;
-  color: var(--faded);
-  font-size: 9px;
+  color: var(--ink);
+  font-size: 10px;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
@@ -1003,9 +1018,9 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
   grid-column: 1 / -1;
   margin-top: 8px;
   padding: 8px 10px 0;
-  border-top: 1px dotted var(--ink);
-  color: var(--faded);
-  font-size: 10px;
+  border-top: 1px dotted var(--faded);
+  color: var(--ink);
+  font-size: 11px;
 }
 
 .final-layout {
@@ -1036,7 +1051,7 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--faded);
+  color: var(--ink);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: .08em;
@@ -1074,9 +1089,9 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 18px;
   padding: 8px 0;
-  border-bottom: 1px dotted var(--ink);
-  color: var(--faded);
-  font-size: 11px;
+  border-bottom: 1px dotted var(--faded);
+  color: var(--ink);
+  font-size: 12px;
 }
 
 .summary-row strong {
@@ -1096,9 +1111,9 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
   align-items: center;
   justify-content: space-between;
   padding: 8px 0;
-  border-bottom: 1px dotted var(--ink);
+  border-bottom: 1px dotted var(--faded);
   color: var(--ink);
-  font-size: 10px;
+  font-size: 11px;
   text-decoration: none;
 }
 
@@ -1122,19 +1137,19 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
   align-items: center;
   gap: 10px;
   padding: 8px 0;
-  border-bottom: 1px dotted var(--ink);
-  font-size: 9px;
+  border-bottom: 1px dotted var(--faded);
+  font-size: 10px;
 }
 
 .ledger-row span,
 .ledger-row strong {
   color: var(--ink);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .ledger-row code {
   overflow: hidden;
-  color: var(--faded);
+  color: var(--ink);
   text-overflow: ellipsis;
 }
 
