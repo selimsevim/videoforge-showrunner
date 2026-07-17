@@ -87,6 +87,10 @@ function currentReport(phase) {
   return state.project?.consistencyReports?.find((item) => item.phase === phase)?.report || null;
 }
 
+function isRecordedDemo() {
+  return state.project?.title === "The Shadow — recorded Qwen rehearsal";
+}
+
 function updateChrome() {
   const project = state.project;
   document.querySelector("#provider-label").textContent = "QWEN CLOUD";
@@ -184,6 +188,7 @@ function renderConcept() {
         <div class="button-row split">
           <span class="paid-note"><strong>0 media calls</strong> · editable before generation</span>
           <div class="button-group">
+            <button class="btn" type="button" data-action="load-recorded-demo">Open recorded Qwen demo</button>
             <button class="btn primary" type="submit">Generate production plan →</button>
           </div>
         </div>
@@ -288,6 +293,9 @@ function renderPlan() {
 
 function jobPill(job, approved = false) {
   if (approved) return `<span class="status-pill approved">Approved</span>`;
+  if (job?.kind === "image" && job.status === "COMPLETED") {
+    return `<span class="status-pill">Pending</span>`;
+  }
   const status = job?.status || "NOT STARTED";
   return `<span class="status-pill ${status.toLowerCase()}">${esc(status.replaceAll("_", " "))}</span>`;
 }
@@ -341,7 +349,7 @@ function storyboardCard(shot) {
     <div class="shot-image">${visual}</div>
     <div class="shot-card-head"><div><span class="shot-number">SHOT ${String(shot.order).padStart(2, "0")}</span><h3>${esc(shot.narrativePurpose)}</h3></div>${jobPill(job, shot.imageApproved)}</div>
     <div class="shot-card-body">
-      <div class="shot-meta"><div><span>Seed</span><strong>${shot.imageSeed}</strong></div><div><span>Model</span><strong>${esc(state.config.models.image)}</strong></div></div>
+      <div class="shot-meta"><div><span>Seed</span><strong>${shot.imageSeed}</strong></div><div><span>Model</span><strong>${esc(job?.model || state.config.models.image)}</strong></div></div>
       <div class="prompt-preview">${esc(shot.imagePrompt)}</div>
       ${failed ? `<div class="job-error">${esc(imageFailureCopy(job))}</div>` : ""}
       <div class="button-row">
@@ -360,6 +368,7 @@ function renderStoryboard() {
   const report = currentReport("storyboard");
   return `
     <div class="page-intro"><div><span class="section-kicker">Storyboard review</span><h2>Freeze the visual world.</h2><p>Approve each keyframe before any animation spend. Regeneration is always a deliberate user action.</p></div><span class="status-pill ${allReady ? "approved" : ""}">${approved} / ${state.project.shots.length} approved</span></div>
+    ${isRecordedDemo() ? `<div class="demo-narrative"><span>RECORDED LIVE QWEN RUN</span><p>One room, one woman, one impossible shadow. The cut moves from geography to gaze, isolates the evidence, checks it in reflection, registers the realization, then ends on proof. These six winning frames and their full production prompts are ready for inspection—no provider call or queue is running.</p></div>` : ""}
     ${renderConsistency(report)}
     <div class="storyboard-grid">${state.project.shots.map(storyboardCard).join("")}</div>
     <div class="checkpoint"><div><h3>Human approval gate 02</h3><p>${allReady ? "All keyframes are locked. Wan will animate these exact first frames." : `Review identity, wardrobe, prop, lighting, and room geometry in all ${state.project.shots.length} frames.`}</p></div><div class="button-group"><button class="btn" data-action="check-consistency" ${state.project.shots.some((shot) => !asset(shot, "image")) ? "disabled" : ""}>Run consistency check</button><button class="btn primary" data-action="generate-videos" ${allReady ? "" : "disabled"}>Generate Videos · ${state.project.shots.length} × ${state.project.shots[0]?.durationSeconds || 5}s clips →</button></div></div>`;
@@ -555,6 +564,13 @@ async function handleAction(event) {
     localStorage.removeItem("videoforge-project");
     return render();
   }
+  if (action === "load-recorded-demo") return runAction(button, async () => {
+    state.project = await api("/api/recorded-demo", { method: "POST", body: "{}" });
+    localStorage.setItem("videoforge-project", state.project.id);
+    state.view = "storyboard";
+    notify("Recorded live Qwen storyboard opened. No paid calls were made.");
+    render();
+  });
   if (action === "save-plan") return runAction(button, savePlan);
   if (action === "approve-plan") return runAction(button, async () => {
     await savePlan();

@@ -1,54 +1,86 @@
-# Three-minute hackathon demo
+# Recording-ready demo narrative
 
-## 0:00–0:25 — The problem
+This route uses the six winning images from a completed live Qwen Cloud rehearsal. It
+loads locally, makes no provider call, spends no credits, and opens directly at the
+storyboard. Keep the server in normal Qwen mode so the production path remains real.
 
-“Text-to-video is impressive one clip at a time, but a film is a continuity problem. Three independent prompts produce three different actors, sets, and camera systems. VideoForge turns Qwen Cloud into an AI showrunner.”
+## Before recording
 
-Show the Concept screen. Use the default prompt:
+1. Run `npm start` and open `http://127.0.0.1:8000`.
+2. Click **Start another** if an older project is already open.
+3. Start the recording on the Concept screen.
+4. Click **Open recorded Qwen demo**. The six-shot storyboard should appear immediately.
 
-> A woman finds a Polaroid photograph of herself sleeping in her bedroom, but she lives alone.
+## 0:00–0:25 — The premise
 
-Click **Generate production plan**. This is a live Qwen text-planning call; no media credits are spent yet.
+“A film is not six pretty images. It is one world, revealed through six deliberate
+camera decisions. VideoForge turns a story prompt into a controllable production.”
 
-## 0:25–1:05 — The plan
+Point to the project prompt:
 
-Show the story direction, intended emotional progression, immutable visual bible, and dynamic six-shot list.
+> A woman enters her room in the dark and sees a shadow moving independently.
+
+“For this recording I am opening a completed live Qwen rehearsal, so we can inspect the
+result immediately instead of watching a generation queue. The normal buttons still use
+the real paid Qwen production path and explicit approval gates.”
+
+Click **Open recorded Qwen demo**.
+
+## 0:25–1:25 — Read the storyboard as a scene
+
+Scroll through the six frames and narrate the cut:
+
+1. **Establish — the dark room.** “The wide master gives us the bedroom, door, bed,
+   dresser, TV, Elena, and the fixed blue light direction.”
+2. **Discover — her attention shifts.** “The medium shot tells us where she looks. We
+   move closer because the story has moved from space to attention.”
+3. **Inspect — the impossible shadow.** “Now the actor disappears. The close detail is
+   genuinely about the evidence: wall texture and one raised shadow hand.”
+4. **Recognize — the TV becomes a mirror.** “The tight over-shoulder connects Elena's
+   eyeline to the cracked TV. Her real posture and the impossible shadow share one frame.”
+5. **Dread — she understands.** “A face close-up pauses the investigation for one simple,
+   readable reaction.”
+6. **Reveal — the shadow is not hers.** “The final TV insert supplies physical proof:
+   Elena's hands are lowered, but the reflected shadow hand is raised.”
+
+“The order is not a fixed wide-medium-close template. Qwen chooses shot size from the
+narrative job of each beat. Here the sequence contracts from room, to gaze, to evidence,
+then uses reflection and reaction to complete the reveal.”
+
+## 1:25–2:10 — Show the control system
+
+Open one prompt preview, then click **Edit prompt** to show the plan.
 
 Point out:
 
-- one character and one bedroom;
-- the exact same sweater, Polaroid, light direction, palette, and camera language;
-- distinct narrative functions and cinematographic shot sizes;
-- deterministic seeds;
-- image prompts compiled from one shared bible;
-- motion-only video prompts.
+- the immutable character, room, wardrobe, prop, light, palette, and camera bible;
+- a different primary subject and framing reason for every shot;
+- first-frame state separated from the physical action;
+- image visibility contracts that prevent a close-up from falling back to a full person;
+- motion prompts containing one action and one static camera instruction;
+- recorded model, seed, retry, and prompt-hash metadata.
 
-“Nothing free-form flows directly into paid generation. Pydantic validates the plan and the consistency guardian repairs prompt drift.”
+“The prompt is compiled like a call sheet. Shared facts remain fixed; only the shot's
+composition and physical beat change.”
 
-Click **Approve Plan & Generate Storyboard**.
+## 2:10–2:40 — Human checkpoints and production
 
-## 1:05–1:45 — The human checkpoint
+Return to **Storyboard**. Approve one image if you want to demonstrate the checkpoint.
+Do not click **Regenerate image** or **Generate videos** during the recording unless you
+intend to make paid Qwen calls.
 
-As the six live keyframes complete, explain that production uses `qwen-image-2.0`, `prompt_extend=false`, fixed 16:9 framing, and one output per shot.
+“Opening this rehearsal made zero calls. In a new production, storyboard and video calls
+start only after explicit confirmation. Jobs run independently, are persisted in SQLite,
+and can be retried shot by shot without discarding successful frames.”
 
-Approve each image. Run the consistency check and show the scores/differences.
+## 2:40–3:00 — Close
 
-“The model advises; the filmmaker decides. A score never silently spends credits.”
+“VideoForge makes Qwen behave like a production team: plan the story, lock the world,
+choose the lens for each beat, approve the evidence, and animate only what survived the
+human checkpoint. It is a film workflow—not six unrelated generations.”
 
-Click **Generate Videos**.
+## Live fallback
 
-## 1:45–2:25 — Production
-
-Show persisted per-shot states: queued, generating, polling, downloading, verifying, completed. Play an individual clip.
-
-Point out the approved source keyframe, motion-only prompt, 720P resolution, seed, H.264/30fps/duration verification, and independent retry control.
-
-“Wan is not asked to recast the scene. It is asked to animate this exact frame.”
-
-## 2:25–3:00 — Final cut and proof
-
-Click **Assemble Final Preview**. Toggle between the assembled preview and individual shots. Show models, cost estimate, retries, generation time, and downloads.
-
-Close with:
-
-“VideoForge makes generation constrained, inspectable, recoverable, and collaborative. It uses Qwen for decisions, Qwen Image for the locked world, Wan for motion, and a human for approval—the minimum viable production studio, not another prompt box.”
+If the network is slow, remain in the recorded rehearsal. It is the exact saved output of
+the live run, not mock media. If you do demonstrate live generation, create a separate
+project so the recording-ready rehearsal stays unchanged.

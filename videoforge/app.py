@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import shutil
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -30,6 +32,11 @@ from .providers import (
     QwenCloudProvider,
     ShowrunnerProvider,
 )
+from .recorded_demo import (
+    RECORDED_DEMO_PROMPT,
+    RECORDED_FRAMES,
+    create_recorded_demo_plan,
+)
 from .retry import attempt_seed
 from .schemas import (
     GenerationConfirmation,
@@ -40,6 +47,7 @@ from .schemas import (
     ProjectPatch,
     ProviderImageRequest,
     ProviderVideoRequest,
+    utc_now,
 )
 
 
@@ -184,6 +192,98 @@ def create_app(
                 selected_provider.name,
             )
             return _create_plan(project["id"])
+
+    @app.post("/api/recorded-demo", status_code=201)
+    def recorded_demo() -> dict[str, Any]:
+        """Open a snapshot of a completed live Qwen storyboard rehearsal.
+
+        The endpoint performs local database and file operations only. It never invokes
+        the active provider and cannot start a paid generation job.
+        """
+
+        sources = {
+            frame.shot_id: settings.demo_asset_root / "shadow-rehearsal" / frame.filename
+            for frame in RECORDED_FRAMES
+        }
+        missing = [str(source) for source in sources.values() if not source.is_file()]
+        if missing:
+            raise FileNotFoundError(f"Recorded demo frames are missing: {', '.join(missing)}")
+
+        project = database.create_project(
+            ProjectInput(
+                title="The Shadow — recorded Qwen rehearsal",
+                storyPrompt=RECORDED_DEMO_PROMPT,
+                genre="Psychological horror",
+                visualStyle="Cinematic realism",
+                aspectRatio="16:9",
+                targetDurationSeconds=30,
+                shotCount=6,
+            ),
+            "qwen",
+        )
+        project_id = project["id"]
+        plan = create_recorded_demo_plan(project_id)
+        budget = estimate_budget(plan, settings)
+        database.save_plan(plan, budget.model_dump(by_alias=True))
+        database.approve_plan(project_id)
+
+        shot_by_id = {shot.id: shot for shot in plan.shots}
+        output_dir = settings.asset_root / project_id / "images"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        completed_at = utc_now()
+        for frame in RECORDED_FRAMES:
+            source = sources[frame.shot_id]
+            output = output_dir / frame.filename
+            shutil.copy2(source, output)
+            local_url = f"/assets/{project_id}/images/{frame.filename}"
+            shot = shot_by_id[frame.shot_id]
+            compiled_prompt_hash = prompt_hash(shot.image_prompt)
+            job_id = database.create_job(
+                project_id=project_id,
+                shot_id=frame.shot_id,
+                kind="image",
+                provider="qwen",
+                model=frame.model,
+                payload={
+                    "recordedRehearsal": True,
+                    "source": "live-qwen-run-2026-07-17",
+                    "recordedProviderPromptHash": frame.prompt_hash,
+                },
+                prompt=shot.image_prompt,
+                prompt_hash=compiled_prompt_hash,
+                negative_prompt=plan.visual_bible.negative_prompt,
+                seed=frame.seed,
+                parameters={"size": "1920*1080", "recorded": True},
+                estimated_cost=settings.image_cost_cny,
+                retry_count=frame.retry_count,
+            )
+            database.update_job(
+                job_id,
+                status=JobStatus.COMPLETED,
+                started_at=completed_at,
+                completed_at=completed_at,
+                output_url=local_url,
+                usage_json={"source": "recorded-live-qwen-rehearsal"},
+            )
+            database.create_asset(
+                project_id=project_id,
+                shot_id=frame.shot_id,
+                kind="image",
+                local_path=str(output),
+                local_url=local_url,
+                prompt_hash=frame.prompt_hash,
+                sha256=hashlib.sha256(output.read_bytes()).hexdigest(),
+                metadata={
+                    "source": "recorded-live-qwen-rehearsal",
+                    "model": frame.model,
+                    "seed": frame.seed,
+                    "winningRetry": frame.retry_count,
+                    "recordedProviderPromptHash": frame.prompt_hash,
+                },
+            )
+
+        database.set_stage(project_id, ProductionStage.STORYBOARD_REVIEW, force=True)
+        return database.get_project(project_id)
 
     @app.get("/api/projects")
     def list_projects() -> list[dict[str, Any]]:
