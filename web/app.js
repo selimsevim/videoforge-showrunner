@@ -1,6 +1,5 @@
 const viewRoot = document.querySelector("#view");
 const toastEl = document.querySelector("#toast");
-const noticeEl = document.querySelector("#notice");
 
 const state = {
   config: null,
@@ -90,9 +89,7 @@ function currentReport(phase) {
 
 function updateChrome() {
   const project = state.project;
-  document.querySelector("#provider-label").textContent = state.config
-    ? `${state.config.provider.toUpperCase()} PROVIDER`
-    : "PROVIDER";
+  document.querySelector("#provider-label").textContent = "QWEN CLOUD";
   document.querySelector("#project-kicker").textContent = project ? "ACTIVE PRODUCTION" : "NEW PRODUCTION";
   document.querySelector("#project-heading").textContent = project?.title || "Create a short film";
   document.querySelector("#stage-label").textContent = project?.stage || "DRAFT";
@@ -106,14 +103,6 @@ function updateChrome() {
     button.classList.toggle("active", view === state.view);
     button.classList.toggle("complete", allowed && VIEW_RANK[view] < rank);
   });
-  const real = state.config?.realMode;
-  if (real) {
-    noticeEl.textContent = "REAL QWEN MODE — storyboard and video buttons start paid media calls only after explicit confirmation.";
-    noticeEl.classList.add("visible");
-  } else {
-    noticeEl.textContent = "MOCK MODE — the complete workflow is safe to run; no paid Qwen Cloud calls will be made.";
-    noticeEl.classList.add("visible");
-  }
 }
 
 function render() {
@@ -195,7 +184,6 @@ function renderConcept() {
         <div class="button-row split">
           <span class="paid-note"><strong>0 media calls</strong> · editable before generation</span>
           <div class="button-group">
-            <button class="btn ghost" type="button" data-action="load-demo">Load demo project</button>
             <button class="btn primary" type="submit">Generate production plan →</button>
           </div>
         </div>
@@ -542,13 +530,6 @@ async function handleAction(event) {
     localStorage.removeItem("videoforge-project");
     return render();
   }
-  if (action === "load-demo") return runAction(button, async () => {
-    state.project = await api("/api/demo-project", { method: "POST", body: "{}" });
-    localStorage.setItem("videoforge-project", state.project.id);
-    state.view = "plan";
-    notify("Polished demo plan loaded in mock-safe mode.");
-    render();
-  });
   if (action === "save-plan") return runAction(button, savePlan);
   if (action === "approve-plan") return runAction(button, async () => {
     await savePlan();
@@ -653,6 +634,9 @@ document.querySelectorAll(".stage-link").forEach((button) => {
 async function init() {
   try {
     state.config = await api("/api/config");
+    if (!state.config.realMode || state.config.provider !== "qwen") {
+      throw new Error("VideoForge requires Qwen Cloud. Set SHOWRUNNER_PROVIDER=qwen before starting the app.");
+    }
     const projectId = localStorage.getItem("videoforge-project");
     if (projectId) {
       try {

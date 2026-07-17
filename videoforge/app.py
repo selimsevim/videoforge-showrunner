@@ -53,6 +53,7 @@ def create_app(
     settings.demo_asset_root.mkdir(parents=True, exist_ok=True)
     database = Database(settings.database_path)
     selected_provider = provider or _provider(settings)
+    mock_runtime = isinstance(selected_provider, MockShowrunnerProvider)
     runner = JobRunner(database, selected_provider, settings)
 
     @asynccontextmanager
@@ -73,11 +74,12 @@ def create_app(
     app.state.runner = runner
 
     app.mount("/assets", StaticFiles(directory=settings.asset_root), name="assets")
-    app.mount(
-        "/demo-assets",
-        StaticFiles(directory=settings.demo_asset_root),
-        name="demo-assets",
-    )
+    if mock_runtime:
+        app.mount(
+            "/demo-assets",
+            StaticFiles(directory=settings.demo_asset_root),
+            name="demo-assets",
+        )
     app.mount("/static", StaticFiles(directory=settings.web_root), name="static")
 
     @app.exception_handler(KeyError)
@@ -140,21 +142,23 @@ def create_app(
             raise ValueError(f"shot count exceeds MAX_SHOTS={settings.max_shots}")
         return database.create_project(body, selected_provider.name)
 
-    @app.post("/api/demo-project", status_code=201)
-    def demo_project() -> dict[str, Any]:
-        project = database.create_project(
-            ProjectInput(
-                title="The Third Exposure",
-                storyPrompt=DEMO_PROMPT,
-                genre="Psychological horror",
-                visualStyle="Cinematic realism",
-                aspectRatio="16:9",
-                targetDurationSeconds=15,
-                shotCount=3,
-            ),
-            selected_provider.name,
-        )
-        return _create_plan(project["id"])
+    if mock_runtime:
+
+        @app.post("/api/demo-project", status_code=201)
+        def demo_project() -> dict[str, Any]:
+            project = database.create_project(
+                ProjectInput(
+                    title="The Third Exposure",
+                    storyPrompt=DEMO_PROMPT,
+                    genre="Psychological horror",
+                    visualStyle="Cinematic realism",
+                    aspectRatio="16:9",
+                    targetDurationSeconds=15,
+                    shotCount=3,
+                ),
+                selected_provider.name,
+            )
+            return _create_plan(project["id"])
 
     @app.get("/api/projects")
     def list_projects() -> list[dict[str, Any]]:

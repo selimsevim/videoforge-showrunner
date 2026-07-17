@@ -8,17 +8,17 @@ Show the Concept screen. Use the default prompt:
 
 > A woman finds a Polaroid photograph of herself sleeping in her bedroom, but she lives alone.
 
-Click **Load demo project**.
+Click **Generate production plan**. This is a live Qwen text-planning call; no media credits are spent yet.
 
 ## 0:25–1:05 — The plan
 
-Show the three-beat story, intended emotional progression, and immutable visual bible. Expand the shot list.
+Show the story direction, intended emotional progression, immutable visual bible, and dynamic six-shot list.
 
 Point out:
 
 - one character and one bedroom;
 - the exact same sweater, Polaroid, light direction, palette, and camera language;
-- distinct establish, recognize, and reveal functions;
+- distinct narrative functions and cinematographic shot sizes;
 - deterministic seeds;
 - image prompts compiled from one shared bible;
 - motion-only video prompts.
@@ -29,7 +29,7 @@ Click **Approve Plan & Generate Storyboard**.
 
 ## 1:05–1:45 — The human checkpoint
 
-As the three mock keyframes complete, explain that real mode uses `qwen-image-2.0`, `prompt_extend=false`, fixed 16:9 framing, and one output per shot.
+As the six live keyframes complete, explain that production uses `qwen-image-2.0`, `prompt_extend=false`, fixed 16:9 framing, and one output per shot.
 
 Approve each image. Run the consistency check and show the scores/differences.
 
@@ -52,4 +52,3 @@ Click **Assemble Final Preview**. Toggle between the assembled preview and indiv
 Close with:
 
 “VideoForge makes generation constrained, inspectable, recoverable, and collaborative. It uses Qwen for decisions, Qwen Image for the locked world, Wan for motion, and a human for approval—the minimum viable production studio, not another prompt box.”
-

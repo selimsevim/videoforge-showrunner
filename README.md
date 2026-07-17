@@ -98,23 +98,7 @@ npm start
 
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 
-### Mock mode — safe default
-
-```dotenv
-SHOWRUNNER_PROVIDER=mock
-```
-
-Mock mode supports planning, storyboard generation/approval, asynchronous videos, failure/retry behavior, persistence, consistency inspection, downloads, and FFmpeg assembly. It copies the successful Qwen/Wan experiment outputs from `public/demo-assets/`; it makes no paid provider calls.
-
-Run the complete headless mock smoke test:
-
-```bash
-npm run smoke:mock
-```
-
-### Real Qwen Cloud mode
-
-Use a Singapore Model Studio key and workspace:
+### Production Qwen Cloud mode — default
 
 ```dotenv
 SHOWRUNNER_PROVIDER=qwen
@@ -123,7 +107,7 @@ QWEN_WORKSPACE_ID=your-workspace-id
 QWEN_REGION=ap-southeast-1
 ```
 
-Compatibility aliases `DASHSCOPE_API_KEY`, `QWEN_CLOUD_API_KEY`, and `QWEN_CLOUD_BASE_URL` are also accepted. Storyboard and video endpoints reject real-mode requests unless the browser explicitly sends `confirmPaidCalls=true` after a user action.
+Compatibility aliases `DASHSCOPE_API_KEY`, `QWEN_CLOUD_API_KEY`, and `QWEN_CLOUD_BASE_URL` are also accepted. Storyboard and video endpoints reject requests unless the browser explicitly sends `confirmPaidCalls=true` after a user action.
 
 The paid smoke script refuses to run without an explicit flag:
 
@@ -133,15 +117,25 @@ npm run smoke:paid -- --confirm-paid-calls
 
 That command intentionally creates one real plan, one paid image, and one paid three-second video. Normal tests never call Qwen Cloud.
 
+### Test-only mock provider
+
+```dotenv
+SHOWRUNNER_PROVIDER=mock
+```
+
+The mock provider remains available for isolated automated verification, but the production browser refuses to present it as a runnable submission mode. Run its complete headless smoke test with:
+
+```bash
+npm run smoke:mock
+```
+
 ## Demo
 
-Use **Load demo project** on the Concept screen. The included production is:
+Use the prefilled concept or enter a new prompt, then click **Generate production plan**. The recording-ready example is:
 
 > A woman finds a Polaroid photograph of herself sleeping in her bedroom, but she lives alone.
 
-- **Shot 1 — Discovery:** she notices the Polaroid on the floor.
-- **Shot 2 — Recognition:** she sees herself asleep in the same room.
-- **Shot 3 — Presence:** the photograph gains a silhouette as she turns toward the dark doorway.
+Qwen turns that premise into a dynamic six-shot plan. Review the visual bible and framing choices, approve the paid keyframe call, then approve the resulting frames before Wan animation.
 
 Follow [`docs/demo-script.md`](docs/demo-script.md) for a three-minute hackathon presentation.
 
@@ -151,7 +145,7 @@ Defaults:
 
 ```dotenv
 MAX_SHOTS=6
-DEFAULT_SHOTS=3
+DEFAULT_SHOTS=6
 MAX_VIDEO_DURATION_SECONDS=5
 MAX_PROJECT_RETRIES=3
 MAX_CONCURRENT_VIDEO_TASKS=2
@@ -167,7 +161,7 @@ SQLite stores the full production state in `data/videoforge.db`; generated asset
 
 On a server restart:
 
-- queued mock jobs resume;
+- queued generation jobs resume;
 - Wan polling resumes when a remote task ID was persisted;
 - interrupted real synchronous image calls are marked for explicit user retry, preventing accidental duplicate billing;
 - individual assets remain available even if another shot or final assembly fails.
@@ -212,7 +206,7 @@ See [`docs/deployment.md`](docs/deployment.md) for build, environment, volume, s
 ## Known limitations
 
 - Prompt-only multi-image identity is good but not pixel-identical; jewelry and fine facial details can drift.
-- The current editor is a focused three-shot workspace, not a nonlinear timeline.
+- The current editor is a focused six-shot workspace, not a nonlinear timeline.
 - Final assembly is a reliable straight cut with normalization; elaborate transitions and sound design are intentionally out of scope.
 - Local SQLite/assets suit one-instance hackathon deployment. Horizontal scale needs managed SQL, object storage, and a distributed worker queue.
 - Remote provider URLs expire; VideoForge downloads assets immediately, but a stale real keyframe URL requires keyframe regeneration before animation.
@@ -220,4 +214,3 @@ See [`docs/deployment.md`](docs/deployment.md) for build, environment, volume, s
 ## License
 
 [MIT](LICENSE)
-

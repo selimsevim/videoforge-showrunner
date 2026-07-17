@@ -30,9 +30,9 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: "Courier Prime", "Courier New", ui-monospace, monospace;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
-  line-height: 1.72;
+  line-height: 1.45;
 }
 
 button,
@@ -63,27 +63,52 @@ h2,
 h3,
 h4,
 summary {
-  font-weight: 700;
+  font-weight: 400;
+}
+
+label,
+.section-kicker,
+.shot-number,
+.status-pill,
+.btn,
+.stage-link,
+.topbar-meta,
+.shot-meta span,
+.report-score span,
+.emotion-arc,
+.tech-list,
+.ledger-row,
+.summary-row,
+.download-link,
+.checkpoint::before,
+.checkpoint::after {
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 h1,
 h2,
 h3,
 h4,
-label,
-summary,
-.section-kicker,
-.shot-number,
-.status-pill,
-.btn,
-.call-sheet-name,
-.stage-link,
-.topbar-meta,
-.empty-state,
-.checkpoint::before,
-.checkpoint::after {
-  letter-spacing: .08em;
-  text-transform: uppercase;
+summary {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+p,
+.char-count,
+.paid-note,
+.shot-purpose,
+.pipeline-step span,
+.quote-block,
+.report-differences,
+.job-error {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .visually-hidden {
@@ -125,9 +150,13 @@ summary,
 }
 
 .call-sheet-name {
-  font-size: clamp(20px, 2.5vw, 28px);
+  overflow: hidden;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.2;
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .project-title-block {
@@ -138,8 +167,13 @@ summary,
 .project-title-block h1 {
   margin: 0;
   overflow: hidden;
-  font-size: clamp(20px, 2.5vw, 28px);
-  line-height: 1.15;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  font-style: italic;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -158,7 +192,8 @@ summary,
   background: transparent;
   color: var(--ink);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
+  line-height: 1.45;
   text-align: center;
   transition: opacity 100ms steps(1, end), border-color 100ms steps(1, end);
 }
@@ -170,6 +205,7 @@ summary,
 .stage-link.active {
   border-bottom-color: var(--stamp);
   color: var(--stamp);
+  font-weight: 700;
 }
 
 .stage-link.complete span:last-child::after {
@@ -185,14 +221,25 @@ summary,
   margin-right: 3px;
 }
 
-.topbar-meta {
+.document-subline {
   display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding-top: 8px;
+}
+
+.topbar-meta {
+  display: inline-flex;
   flex-wrap: wrap;
   align-items: baseline;
+  width: fit-content;
+  max-width: 640px;
   gap: 7px;
-  padding: 8px 0;
-  color: var(--ink);
+  padding: 0;
+  color: var(--faded);
   font-size: 11px;
+  line-height: 1.45;
 }
 
 .meta-item,
@@ -210,7 +257,7 @@ summary,
 }
 
 .topbar-meta strong {
-  color: var(--ink);
+  color: var(--faded);
 }
 
 .budget-meter strong {
@@ -219,26 +266,53 @@ summary,
 }
 
 .provider-chip {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 5px;
   margin-left: auto;
+  color: var(--faded);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.provider-chip strong {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .notice {
   display: none;
-  margin: 8px 0 0;
-  padding: 9px 12px;
-  border: 1px dashed var(--stamp);
-  background: var(--paper);
+  align-items: baseline;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--stamp);
-  font-size: 11px;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.notice::before {
+  content: "!";
+  flex: 0 0 auto;
+  color: var(--stamp);
+  font-weight: 700;
 }
 
 .notice.visible {
-  display: block;
+  display: flex;
 }
 
 .view {
-  padding: 38px 0 0;
+  padding: 56px 0 0;
 }
 
 .page-intro {
@@ -246,34 +320,39 @@ summary,
   align-items: end;
   justify-content: space-between;
   gap: 28px;
-  margin-bottom: 34px;
-  padding-bottom: 20px;
+  margin-bottom: 56px;
+  padding-bottom: 14px;
   border-bottom: 2px solid var(--ink);
 }
 
 .page-intro h2 {
   margin: 3px 0 7px;
-  font-size: clamp(20px, 3vw, 28px);
-  line-height: 1.25;
+  max-width: 22ch;
+  font-family: "Courier Prime", "Courier New", ui-monospace, monospace;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .page-intro p {
   max-width: 68ch;
   margin: 0;
   color: var(--ink);
-  line-height: 1.72;
 }
 
 .section-kicker {
   color: var(--ink);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 400;
+  line-height: 1.45;
 }
 
 .concept-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr);
-  gap: 36px;
+  gap: 56px;
   align-items: start;
 }
 
@@ -293,7 +372,7 @@ summary,
 .form-panel::before {
   content: "PRODUCTION BRIEF";
   display: block;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   padding-bottom: 7px;
   border-bottom: 2px solid var(--ink);
   font-size: 12px;
@@ -312,25 +391,27 @@ summary,
 
 .panel-header h3 {
   margin: 0;
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .panel-header p {
   margin: 2px 0 0;
   max-width: 68ch;
   color: var(--ink);
-  font-size: 11px;
 }
 
 .panel-body {
   padding: 20px 0;
 }
 
-.panel > .panel-body:first-child {
-  border-top: 2px solid var(--ink);
-}
-
 .panel > .panel-body:first-child h3 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  font-style: italic;
+  font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
 }
@@ -338,7 +419,7 @@ summary,
 .field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 28px;
+  gap: 20px 28px;
 }
 
 .field-grid.three {
@@ -356,7 +437,8 @@ summary,
   margin-bottom: 4px;
   color: var(--ink);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 400;
+  line-height: 1.45;
 }
 
 .field label em {
@@ -377,12 +459,12 @@ summary,
   outline: 0;
   background: transparent;
   color: var(--ink);
+  line-height: 1.45;
   transition: border-color 100ms steps(1, end), opacity 100ms steps(1, end);
 }
 
 .field textarea {
   min-height: 112px;
-  line-height: 1.72;
   resize: vertical;
 }
 
@@ -398,14 +480,19 @@ summary,
 
 .field input[readonly],
 .field textarea[readonly] {
-  background: var(--paper-dim);
+  padding: 4px 0;
+  border-bottom: 0;
+  background: transparent;
   color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
 }
 
 .char-count {
-  margin-top: 5px;
+  margin-top: 8px;
   color: var(--ink);
-  font-size: 11px;
   text-align: right;
 }
 
@@ -414,7 +501,7 @@ summary,
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .button-row.split {
@@ -434,7 +521,8 @@ summary,
   background: transparent;
   color: var(--ink);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
+  line-height: 1.45;
   transition: opacity 100ms steps(1, end), border-color 100ms steps(1, end);
 }
 
@@ -459,6 +547,11 @@ summary,
   background: transparent;
 }
 
+.btn.ghost:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+
 .btn.small {
   min-height: 30px;
   padding: 6px 10px;
@@ -475,11 +568,11 @@ summary,
 
 .paid-note {
   color: var(--ink);
-  font-size: 11px;
 }
 
 .paid-note strong {
   color: var(--stamp);
+  font-weight: 700;
 }
 
 .strategy-panel {
@@ -488,66 +581,72 @@ summary,
 
 .strategy-panel > .section-kicker {
   display: block;
-  margin-bottom: 16px;
-  padding-bottom: 7px;
-  border-bottom: 2px solid var(--ink);
+  margin-bottom: 4px;
+  padding-bottom: 0;
+  border-bottom: 0;
   color: var(--ink);
-  font-size: 12px;
+  font-size: 10px;
+  font-weight: 400;
 }
 
 .strategy-panel h3 {
-  margin: 0 0 8px;
+  margin: 0 0 20px;
+  padding-bottom: 7px;
+  border-bottom: 2px solid var(--ink);
   font-size: 17px;
+  font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
 }
 
 .strategy-panel > p {
-  margin: 0 0 18px;
+  margin: 0 0 20px;
   max-width: 68ch;
   color: var(--ink);
 }
 
 .pipeline {
   display: grid;
+  gap: 20px;
 }
 
 .pipeline-step {
   display: grid;
   grid-template-columns: 1fr;
-  padding: 9px 0;
-  border-bottom: 1px dotted var(--faded);
+  padding: 0;
+  border-bottom: 0;
   color: var(--ink);
 }
 
 .pipeline-step strong {
   color: var(--ink);
   font-size: 12px;
-}
-
-.pipeline-step span {
-  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .quote-block {
-  margin-top: 18px;
+  margin-top: 32px;
   padding: 10px 0 10px 14px;
   border-left: 2px solid var(--ink);
   color: var(--ink);
-  font-size: 13px;
 }
 
 .plan-summary {
   display: grid;
   grid-template-columns: 1.2fr .8fr;
-  gap: 36px;
-  margin-bottom: 34px;
+  gap: 56px;
+  margin-bottom: 56px;
 }
 
 .logline {
   margin: 0;
   color: var(--ink);
+  font-family: Georgia, "Times New Roman", serif;
   font-size: 18px;
+  font-weight: 400;
   line-height: 1.5;
 }
 
@@ -557,18 +656,25 @@ summary,
   gap: 8px;
   color: var(--ink);
   font-size: 10px;
+  font-weight: 400;
+  line-height: 1.45;
 }
 
 .emotion-arc i {
-  flex: 1;
-  height: 1px;
-  background: var(--ink);
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  background: transparent;
+}
+
+.emotion-arc i::before {
+  content: "·";
 }
 
 .plan-sections,
 .shot-plan-list {
   display: grid;
-  gap: 30px;
+  gap: 56px;
 }
 
 .collapsible summary {
@@ -578,6 +684,9 @@ summary,
   gap: 16px;
   padding: 8px 0;
   border-bottom: 2px solid var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
   cursor: pointer;
   list-style: none;
 }
@@ -597,13 +706,13 @@ summary,
 }
 
 .collapsible-content {
-  padding: 18px 0 0;
+  padding: 20px 0 0;
 }
 
 .bible-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 28px;
+  gap: 20px 28px;
 }
 
 .shot-plan-list {
@@ -612,8 +721,8 @@ summary,
 
 .shot-plan-card {
   counter-increment: shot-plan;
-  padding-bottom: 20px;
-  border-bottom: 1px dotted var(--faded);
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .shot-plan-head {
@@ -621,14 +730,15 @@ summary,
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 0 9px;
-  border-bottom: 1px dotted var(--faded);
+  padding: 0 0 20px;
+  border-bottom: 0;
 }
 
 .shot-number {
   color: var(--ink);
   font-size: 0;
-  font-weight: 700;
+  font-weight: 400;
+  line-height: 1.45;
 }
 
 .shot-plan-list .shot-number::before {
@@ -641,7 +751,7 @@ summary,
   counter-reset: shot-card;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 34px 24px;
+  gap: 56px 24px;
 }
 
 .storyboard-grid .shot-card,
@@ -657,12 +767,10 @@ summary,
 
 .shot-purpose {
   color: var(--ink);
-  font-size: 13px;
-  line-height: 1.6;
 }
 
 .shot-plan-body {
-  padding: 22px 0 0;
+  padding: 0;
 }
 
 .compiled-prompt {
@@ -670,19 +778,20 @@ summary,
   margin-top: 10px;
   padding: 12px 14px;
   overflow: auto;
-  border-top: 1px dotted var(--faded);
-  border-bottom: 1px dotted var(--faded);
+  border-top: 0;
+  border-bottom: 0;
   background: var(--paper-dim);
   color: var(--ink);
   font-size: 11px;
-  line-height: 1.7;
+  font-weight: 400;
+  line-height: 1.45;
   white-space: pre-wrap;
 }
 
 .shot-card {
   min-width: 0;
-  padding-bottom: 22px;
-  border-bottom: 1px dotted var(--faded);
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .shot-image {
@@ -715,18 +824,30 @@ summary,
   text-align: center;
 }
 
+.shot-overlay p {
+  margin: 6px 0 0;
+  font-family: "Courier Prime", "Courier New", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
 .shot-card-head {
   display: flex;
   align-items: start;
   justify-content: space-between;
   gap: 12px;
   padding: 14px 0 11px;
-  border-bottom: 1px dotted var(--faded);
+  border-bottom: 0;
 }
 
 .shot-card-head h3 {
   margin: 3px 0 0;
-  font-size: 14px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-weight: 400;
   line-height: 1.5;
   letter-spacing: 0;
   text-transform: none;
@@ -738,7 +859,6 @@ summary,
 
 .shot-card-body p {
   color: var(--ink);
-  font-size: 12px;
 }
 
 .shot-meta {
@@ -765,7 +885,8 @@ summary,
   overflow: hidden;
   color: var(--ink);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
+  line-height: 1.45;
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -775,11 +896,15 @@ summary,
   display: -webkit-box;
   padding: 10px 12px;
   overflow: hidden;
-  border-bottom: 1px dotted var(--faded);
+  border-bottom: 0;
   background: var(--paper-dim);
   color: var(--ink) !important;
+  font-family: "Courier Prime", "Courier New", ui-monospace, monospace !important;
   font-size: 11px !important;
-  line-height: 1.65;
+  font-weight: 400 !important;
+  line-height: 1.45;
+  letter-spacing: 0;
+  text-transform: none;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }
@@ -791,7 +916,8 @@ summary,
   background: transparent;
   color: var(--faded);
   font-size: 0;
-  font-weight: 700;
+  font-weight: 400;
+  line-height: 1.45;
   white-space: nowrap;
 }
 
@@ -840,6 +966,12 @@ summary,
   color: var(--stamp);
 }
 
+.status-pill.failed,
+.status-pill.retake,
+.status-pill.cancelled {
+  font-weight: 700;
+}
+
 .status-pill.failed::after,
 .status-pill.cancelled::after {
   content: "FAILED";
@@ -861,7 +993,8 @@ summary,
 .skeleton::before {
   content: "PRINTING...";
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
+  line-height: 1.45;
   letter-spacing: .08em;
   animation: mechanical-blink 900ms steps(1, end) infinite;
 }
@@ -880,7 +1013,7 @@ summary,
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  margin-top: 36px;
+  margin-top: 56px;
   padding: 50px 20px 20px;
   border: 1px dashed var(--stamp);
   background: var(--paper);
@@ -917,14 +1050,18 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 
 .checkpoint h3 {
   margin: 0 0 3px;
-  font-size: 12px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .checkpoint p {
   margin: 0;
   max-width: 68ch;
   color: var(--ink);
-  font-size: 12px;
 }
 
 .progress-track {
@@ -953,12 +1090,11 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 }
 
 .job-error {
-  margin: 12px 0;
-  padding: 9px 0;
-  border-top: 1px dotted var(--stamp);
-  border-bottom: 1px dotted var(--stamp);
-  background: var(--paper);
-  font-size: 10px;
+  margin: 20px 0;
+  padding: 0;
+  border-top: 0;
+  border-bottom: 0;
+  background: transparent;
 }
 
 .tech-list {
@@ -971,21 +1107,23 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 .tech-list span {
   color: var(--ink);
   font-size: 10px;
+  font-weight: 400;
+  line-height: 1.45;
 }
 
 .tech-list b {
   color: var(--ink);
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .report-strip {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 0;
-  margin: 18px 0 26px;
+  margin: 0 0 56px;
   padding: 10px 0;
-  border-top: 2px solid var(--ink);
-  border-bottom: 1px solid var(--ink);
+  border-top: 0;
+  border-bottom: 0;
   background: transparent;
 }
 
@@ -1010,7 +1148,7 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
   display: block;
   color: var(--ink);
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.3;
 }
 
@@ -1020,13 +1158,12 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
   padding: 8px 10px 0;
   border-top: 1px dotted var(--faded);
   color: var(--ink);
-  font-size: 11px;
 }
 
 .final-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, .5fr);
-  gap: 28px;
+  gap: 56px;
 }
 
 .final-player {
@@ -1042,18 +1179,20 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 
 .view-toggle {
   display: inline-flex;
-  margin-bottom: 18px;
-  border-bottom: 1px solid var(--ink);
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 0;
 }
 
 .view-toggle button {
   padding: 7px 12px;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-bottom: 0;
   background: transparent;
   color: var(--ink);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 400;
+  line-height: 1.45;
   letter-spacing: .08em;
   text-transform: uppercase;
 }
@@ -1063,8 +1202,8 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 }
 
 .view-toggle button.active {
-  border-bottom-color: var(--stamp);
   color: var(--stamp);
+  font-weight: 400;
 }
 
 .individual-strip {
@@ -1096,22 +1235,22 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 
 .summary-row strong {
   color: var(--ink);
-  font-weight: 700;
+  font-weight: 400;
   text-align: right;
 }
 
 .download-list {
   display: grid;
-  gap: 0;
-  margin-top: 16px;
+  gap: 12px;
+  margin-top: 20px;
 }
 
 .download-link {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px dotted var(--faded);
+  padding: 0;
+  border-bottom: 0;
   color: var(--ink);
   font-size: 11px;
   text-decoration: none;
@@ -1122,7 +1261,7 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 }
 
 .ledger-panel {
-  margin-top: 24px;
+  margin-top: 56px;
 }
 
 .ledger-list {
@@ -1145,6 +1284,7 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 .ledger-row strong {
   color: var(--ink);
   font-size: 10px;
+  font-weight: 400;
 }
 
 .ledger-row code {
@@ -1166,11 +1306,13 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 .ledger-row b {
   color: var(--stamp);
   font-size: 8px;
+  font-weight: 700;
   text-align: right;
 }
 
 .ledger-row b.pass {
   color: var(--ink);
+  font-weight: 400;
 }
 
 .empty-state {
@@ -1186,6 +1328,10 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 .empty-state h3 {
   margin: 0 0 6px;
   color: var(--faded);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .spinner {
@@ -1198,7 +1344,8 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 .spinner::before {
   content: "PRINTING...";
   font-size: 10px;
-  font-weight: 700;
+  font-weight: 400;
+  line-height: 1.45;
   letter-spacing: .08em;
   animation: mechanical-blink 900ms steps(1, end) infinite;
 }
@@ -1265,12 +1412,18 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
   }
 
   .project-title-block {
-    text-align: left;
+    text-align: right;
   }
 
   .project-title-block h1 {
-    font-size: 18px;
+    font-size: 16px;
     white-space: normal;
+  }
+
+  .document-subline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .topbar-meta {

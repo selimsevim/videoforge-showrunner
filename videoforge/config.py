@@ -25,7 +25,7 @@ class Settings:
     asset_root: Path = ROOT / "data" / "assets"
     demo_asset_root: Path = ROOT / "public" / "demo-assets"
     web_root: Path = ROOT / "web"
-    provider: str = "mock"
+    provider: str = "qwen"
     qwen_text_model: str = "qwen-plus"
     qwen_vision_model: str = "qwen3-vl-plus"
     qwen_image_model: str = "qwen-image-2.0"
@@ -63,7 +63,7 @@ class Settings:
                     "VIDEOFORGE_DEMO_ASSETS", ROOT / "public" / "demo-assets"
                 )
             ),
-            "provider": os.environ.get("SHOWRUNNER_PROVIDER", "mock").lower(),
+            "provider": os.environ.get("SHOWRUNNER_PROVIDER", "qwen").lower(),
             "qwen_text_model": os.environ.get("QWEN_TEXT_MODEL", "qwen-plus"),
             "qwen_vision_model": os.environ.get("QWEN_VISION_MODEL", "qwen3-vl-plus"),
             "qwen_image_model": os.environ.get("QWEN_IMAGE_MODEL", "qwen-image-2.0"),
