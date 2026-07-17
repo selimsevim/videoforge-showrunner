@@ -37,7 +37,8 @@ VIDEOFORGE_DATABASE=/app/data/videoforge.db
 VIDEOFORGE_ASSET_ROOT=/app/data/assets
 MAX_SHOTS=6
 MAX_VIDEO_DURATION_SECONDS=5
-MAX_PROJECT_RETRIES=3
+MAX_PROJECT_RETRIES=4
+MAX_CONCURRENT_IMAGE_TASKS=1
 MAX_CONCURRENT_VIDEO_TASKS=2
 ```
 
@@ -92,4 +93,3 @@ At application startup, incomplete jobs are loaded from SQLite:
 ## Region alignment
 
 The API key, workspace-specific Model Studio endpoint, and model availability must all be Singapore-region resources. VideoForge constructs the native media endpoint from `QWEN_WORKSPACE_ID`; the text/vision client uses the compatible-mode endpoint on the same workspace domain.
-

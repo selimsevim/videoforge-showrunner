@@ -1,7 +1,19 @@
 from __future__ import annotations
 
 
-RETRYABLE_CODES = {"429", "500", "502", "503", "504", "TIMEOUT", "CONNECTION"}
+RETRYABLE_CODES = {
+    "429",
+    "500",
+    "502",
+    "503",
+    "504",
+    "TIMEOUT",
+    "CONNECTION",
+    "THROTTLING_RATEQUOTA",
+    "THROTTLING_RATE_QUOTA",
+    "THROTTLING_BURSTRATE",
+    "THROTTLING_BURST_RATE",
+}
 NON_RETRYABLE_CODES = {
     "401",
     "403",

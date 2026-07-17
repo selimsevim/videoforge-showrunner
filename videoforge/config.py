@@ -35,7 +35,8 @@ class Settings:
     max_shots: int = 6
     default_shots: int = 6
     max_video_duration_seconds: int = 5
-    max_project_retries: int = 3
+    max_project_retries: int = 4
+    max_concurrent_image_tasks: int = 1
     max_concurrent_video_tasks: int = 2
     mock_delay_seconds: float = 0.18
     poll_interval_seconds: float = 15.0
@@ -75,7 +76,8 @@ class Settings:
             "max_shots": _int("MAX_SHOTS", 6),
             "default_shots": _int("DEFAULT_SHOTS", 6),
             "max_video_duration_seconds": _int("MAX_VIDEO_DURATION_SECONDS", 5),
-            "max_project_retries": _int("MAX_PROJECT_RETRIES", 3),
+            "max_project_retries": _int("MAX_PROJECT_RETRIES", 4),
+            "max_concurrent_image_tasks": _int("MAX_CONCURRENT_IMAGE_TASKS", 1),
             "max_concurrent_video_tasks": _int("MAX_CONCURRENT_VIDEO_TASKS", 2),
             "mock_delay_seconds": _float("MOCK_DELAY_SECONDS", 0.18),
             "poll_interval_seconds": _float("QWEN_POLL_INTERVAL_SECONDS", 15.0),
@@ -92,4 +94,8 @@ class Settings:
             raise ValueError("SHOWRUNNER_PROVIDER must be 'mock' or 'qwen'")
         if not 1 <= settings.default_shots <= settings.max_shots <= 6:
             raise ValueError("shot limits must satisfy 1 <= DEFAULT_SHOTS <= MAX_SHOTS <= 6")
+        if settings.max_concurrent_image_tasks < 1:
+            raise ValueError("MAX_CONCURRENT_IMAGE_TASKS must be at least 1")
+        if settings.max_concurrent_video_tasks < 1:
+            raise ValueError("MAX_CONCURRENT_VIDEO_TASKS must be at least 1")
         return settings

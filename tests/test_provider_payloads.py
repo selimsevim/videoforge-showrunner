@@ -3,6 +3,7 @@ from __future__ import annotations
 from PIL import Image
 
 from videoforge.config import Settings
+from videoforge.providers.base import ProviderError
 from videoforge.providers.qwen_cloud import QwenCloudProvider
 from videoforge.schemas import ProjectInput, ProviderImageRequest, ProviderVideoRequest
 
@@ -47,6 +48,42 @@ def test_qwen_provider_constructs_proven_requests_without_calling_api(monkeypatc
     ]
     assert video["parameters"]["prompt_extend"] is False
     assert "frame_rate" not in video["parameters"]
+
+
+def test_qwen_rate_quota_error_keeps_provider_code_instead_of_url_scheme() -> None:
+    wrapped = QwenCloudProvider._provider_error(
+        RuntimeError(
+            'POST https://workspace.example/api exhausted 6 attempts: HTTP 429: '
+            '{"code":"Throttling.RateQuota","message":"Requests rate limit exceeded"}'
+        )
+    )
+    assert isinstance(wrapped, ProviderError)
+    assert wrapped.code == "THROTTLING_RATE_QUOTA"
+    assert wrapped.retryable
+
+
+def test_medium_reframe_uses_only_upper_body_from_full_person_target() -> None:
+    cropped = QwenCloudProvider._upper_body_crop_box([300, 100, 700, 900])
+    assert cropped == [300.0, 100.0, 700.0, 540.0]
+
+
+def test_reflection_crop_stays_inside_screen_box_at_output_aspect() -> None:
+    cropped = QwenCloudProvider._inner_aspect_crop_box([300, 50, 800, 950])
+    assert cropped[0] == 300.0
+    assert cropped[2] == 800.0
+    assert round(cropped[3] - cropped[1], 3) == 500.0
+
+
+def test_ots_crop_tightly_unites_foreground_and_eyeline_target() -> None:
+    cropped = QwenCloudProvider._ots_target_crop_box(
+        [350, 120, 560, 700], [650, 80, 950, 620]
+    )
+    assert cropped == [350.0, 90.0, 950.0, 690.0]
+
+
+def test_shadow_detail_crop_biases_toward_raised_hand() -> None:
+    cropped = QwenCloudProvider._shadow_detail_crop_box([550, 100, 800, 850])
+    assert cropped == [550.0, 162.5, 800.0, 412.5]
 
 
 def test_hand_led_image_payload_adds_anatomy_negative_prompt(monkeypatch) -> None:
@@ -249,6 +286,56 @@ def test_qwen_image_edit_payload_adds_shot_shaped_composition_guide(
     assert "shot-shaped crop" in content[2]["text"]
 
 
+def test_qwen_reflection_ots_never_instructs_model_to_create_photograph(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+    payload = provider._image_payload(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-04",
+            prompt="Over Elena's shoulder toward the cracked television.",
+            negative_prompt="duplicate person",
+            seed=23,
+            reference_image_url="https://example.test/master.png",
+            framing="Over-the-shoulder (from behind Elena)",
+            framing_target="Elena's reflection in the black TV screen",
+        )
+    )
+    text = payload["input"]["messages"][0]["content"][-1]["text"]
+    assert "same optical reflection may appear inside the TV glass" in text
+    assert "looking at the photograph she holds" not in text
+
+
+def test_qwen_late_reflection_retry_uses_actor_free_set_plate(monkeypatch) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+    monkeypatch.setattr(
+        provider,
+        "_set_plate_guide",
+        lambda request: "data:image/png;base64,actor-free-set",
+    )
+    payload = provider._image_payload(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-04",
+            prompt="Over Elena's shoulder toward the cracked television.",
+            negative_prompt="duplicate person",
+            seed=29,
+            reference_image_url="https://example.test/master.png",
+            framing="Over-the-shoulder from behind Elena",
+            framing_target="Elena's reflection in the black TV screen",
+            continuity_reference_mode="set-plate-composition-reset",
+        )
+    )
+    content = payload["input"]["messages"][0]["content"]
+    assert content[0] == {"image": "data:image/png;base64,actor-free-set"}
+    assert "actor-free set plate" in content[-1]["text"]
+
+
 def test_qwen_video_payload_accepts_exact_local_reviewed_frame(
     monkeypatch, tmp_path
 ) -> None:
@@ -362,6 +449,142 @@ def test_face_crop_records_geometry_override_when_recheck_hallucinates(
     )
     assert decision["cropVerification"]["compliant"] is False
     assert decision["geometryOverride"]["method"] == "exact-face-target-box"
+
+
+def test_reflection_crop_uses_exact_screen_box_even_if_recheck_is_stale(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+
+    class StubClient:
+        def __init__(self) -> None:
+            self.responses = [
+                (
+                    '{"compliant":false,"reason":"room visible",'
+                    '"targetBox":[350,120,900,850],"cropBox":null}'
+                ),
+                (
+                    '{"compliant":false,"reason":"stale room report",'
+                    '"targetBox":[350,120,900,850],"cropBox":null}'
+                ),
+            ]
+
+        def request_json(self, *args, **kwargs):
+            content = self.responses.pop(0)
+            return {"choices": [{"message": {"content": content}}]}
+
+    provider.client = StubClient()
+    path = tmp_path / "tv-reflection.png"
+    Image.new("RGB", (1920, 1080), "black").save(path)
+    decision = provider._framing_check(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-06",
+            prompt="Tight TV reflection.",
+            negative_prompt="room overview",
+            seed=6,
+            framing="Insert detail",
+            framing_target="TV screen reflection with a raised hand",
+        ),
+        path,
+    )
+    assert decision["reflectionTargetCrop"] is True
+    assert (
+        decision["geometryOverride"]["method"]
+        == "exact-reflective-surface-target-box"
+    )
+
+
+def test_shadow_crop_uses_exact_shadow_box_when_recheck_is_stale(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+
+    class StubClient:
+        def __init__(self) -> None:
+            self.responses = [
+                (
+                    '{"compliant":false,"reason":"room visible",'
+                    '"targetBox":[550,100,800,850],"foregroundBox":null,"cropBox":null}'
+                ),
+                '{"shadowBox":[550,100,800,850]}',
+                (
+                    '{"compliant":false,"reason":"stale room report",'
+                    '"targetBox":[100,100,900,900],"foregroundBox":null,"cropBox":null}'
+                ),
+            ]
+
+        def request_json(self, *args, **kwargs):
+            return {"choices": [{"message": {"content": self.responses.pop(0)}}]}
+
+    provider.client = StubClient()
+    path = tmp_path / "shadow.png"
+    Image.new("RGB", (1920, 1080), "black").save(path)
+    decision = provider._framing_check(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-03",
+            prompt="Wall shadow only.",
+            negative_prompt="room overview",
+            seed=3,
+            framing="Close-up on wall shadow",
+            framing_target="The shadow on the wall",
+        ),
+        path,
+    )
+    assert decision["shadowTargetCrop"] is True
+    assert decision["geometryOverride"]["method"] == "exact-shadow-target-box"
+
+
+def test_ots_reflection_crop_uses_foreground_and_target_boxes(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setenv("QWEN_API_KEY", "test-key-never-sent")
+    monkeypatch.setenv("QWEN_WORKSPACE_ID", "ws-test123")
+    provider = QwenCloudProvider(Settings())
+
+    class StubClient:
+        def __init__(self) -> None:
+            self.responses = [
+                (
+                    '{"compliant":false,"reason":"too wide",'
+                    '"targetBox":[650,100,950,650],'
+                    '"foregroundBox":[350,120,580,700],"cropBox":null}'
+                ),
+                (
+                    '{"compliant":false,"reason":"stale wide report",'
+                    '"targetBox":[650,100,950,650],'
+                    '"foregroundBox":[350,120,580,700],"cropBox":null}'
+                ),
+            ]
+
+        def request_json(self, *args, **kwargs):
+            return {"choices": [{"message": {"content": self.responses.pop(0)}}]}
+
+    provider.client = StubClient()
+    path = tmp_path / "ots.png"
+    Image.new("RGB", (1920, 1080), "black").save(path)
+    decision = provider._framing_check(
+        ProviderImageRequest(
+            project_id="project-test",
+            shot_id="shot-04",
+            prompt="One subject and TV reflection.",
+            negative_prompt="duplicate person",
+            seed=4,
+            framing="Over-the-shoulder from behind Elena",
+            framing_target="Elena's reflection in the TV screen",
+        ),
+        path,
+    )
+    assert decision["otsTargetCrop"] is True
+    assert (
+        decision["geometryOverride"]["method"]
+        == "foreground-and-eyeline-target-box"
+    )
 
 
 def test_provider_image_request_tracks_visual_target_separately_from_body() -> None:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import time
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -10,6 +12,7 @@ from videoforge.config import ROOT, Settings
 from videoforge.db import Database
 from videoforge.jobs import JobRunner
 from videoforge.planner import DEMO_PROMPT, create_mock_plan
+from videoforge.providers.base import ProviderError
 from videoforge.providers.mock import MockShowrunnerProvider
 from videoforge.schemas import ProjectInput, ProviderImageRequest
 
@@ -141,6 +144,118 @@ def test_health_and_config_never_expose_api_key(client, monkeypatch) -> None:
     assert health["status"] == "ok"
     assert "secret-value" not in str(health)
     assert "secret-value" not in str(config)
+
+
+def test_provider_failure_returns_structured_api_error(tmp_path: Path) -> None:
+    class FailingPlanner(MockShowrunnerProvider):
+        def create_production_plan(self, project_id, project):
+            raise ProviderError(
+                "The provider plan failed validation.",
+                code="PLAN_VALIDATION_FAILED",
+            )
+
+    settings = Settings(
+        database_path=tmp_path / "db.sqlite",
+        asset_root=tmp_path / "assets",
+        demo_asset_root=ROOT / "public" / "demo-assets",
+        mock_delay_seconds=0,
+    )
+    app = create_app(settings, FailingPlanner(settings))
+    with TestClient(app) as client:
+        response = client.post("/api/demo-project", json={})
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": "The provider plan failed validation.",
+        "code": "PLAN_VALIDATION_FAILED",
+        "retryable": False,
+    }
+
+
+def test_storyboard_image_calls_are_serialized(tmp_path: Path) -> None:
+    class ConcurrencyProbe(MockShowrunnerProvider):
+        def __init__(self, settings: Settings):
+            super().__init__(settings)
+            self.lock = threading.Lock()
+            self.active = 0
+            self.peak = 0
+
+        def generate_image(self, request, output_path):
+            with self.lock:
+                self.active += 1
+                self.peak = max(self.peak, self.active)
+            try:
+                time.sleep(0.05)
+                return super().generate_image(request, output_path)
+            finally:
+                with self.lock:
+                    self.active -= 1
+
+    settings = Settings(
+        database_path=tmp_path / "db.sqlite",
+        asset_root=tmp_path / "assets",
+        demo_asset_root=ROOT / "public" / "demo-assets",
+        mock_delay_seconds=0,
+        max_concurrent_image_tasks=1,
+    )
+    provider = ConcurrencyProbe(settings)
+    app = create_app(settings, provider)
+    with TestClient(app) as client:
+        project = client.post("/api/demo-project", json={}).json()
+        client.post(f"/api/projects/{project['id']}/plan/approve", json={})
+        response = client.post(f"/api/projects/{project['id']}/storyboard", json={})
+        assert response.status_code == 202
+        wait(app, project["id"])
+    assert provider.peak == 1
+
+
+def test_framing_failure_retry_gets_corrective_prompt(tmp_path: Path) -> None:
+    class FramingFailureOnce(MockShowrunnerProvider):
+        def __init__(self, settings: Settings):
+            super().__init__(settings)
+            self.failed = False
+
+        def generate_image(self, request, output_path):
+            if request.shot_id == "shot-02" and not self.failed:
+                self.failed = True
+                raise ProviderError(
+                    "Generated shot-02 violates its close framing contract and cannot be "
+                    "corrected by cropping: full person and room visible",
+                    code="FRAMING_VALIDATION_FAILED",
+                )
+            return super().generate_image(request, output_path)
+
+    settings = Settings(
+        database_path=tmp_path / "db.sqlite",
+        asset_root=tmp_path / "assets",
+        demo_asset_root=ROOT / "public" / "demo-assets",
+        mock_delay_seconds=0,
+    )
+    app = create_app(settings, FramingFailureOnce(settings))
+    with TestClient(app) as client:
+        project = client.post("/api/demo-project", json={}).json()
+        project_id = project["id"]
+        client.post(f"/api/projects/{project_id}/plan/approve", json={})
+        client.post(f"/api/projects/{project_id}/storyboard", json={})
+        project = wait(app, project_id)
+        failed = [
+            job
+            for job in project["jobs"]
+            if job["shotId"] == "shot-02" and job["status"] == "FAILED"
+        ]
+        assert failed[-1]["errorCode"] == "FRAMING_VALIDATION_FAILED"
+        response = client.post(
+            f"/api/shots/shot-02/image/regenerate?project_id={project_id}", json={}
+        )
+        assert response.status_code == 202
+        project = wait(app, project_id)
+        retries = [
+            job
+            for job in project["jobs"]
+            if job["shotId"] == "shot-02" and job["retryCount"] == 1
+        ]
+        assert retries[-1]["status"] == "COMPLETED"
+        assert "RETRY_CORRECTION" in retries[-1]["prompt"]
+        assert retries[-1]["parameters"]["correctiveFramingRetry"] is True
 
 
 def test_queued_job_is_recovered_after_runner_restart(tmp_path: Path) -> None:

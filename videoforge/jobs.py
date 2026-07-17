@@ -33,9 +33,15 @@ class JobRunner:
         self.provider = provider
         self.settings = settings
         self.executor = ThreadPoolExecutor(
-            max_workers=max(4, settings.max_concurrent_video_tasks + 2),
+            max_workers=max(
+                4,
+                settings.max_concurrent_image_tasks
+                + settings.max_concurrent_video_tasks
+                + 1,
+            ),
             thread_name_prefix="videoforge-job",
         )
+        self.image_slots = threading.Semaphore(settings.max_concurrent_image_tasks)
         self.video_slots = threading.Semaphore(settings.max_concurrent_video_tasks)
         self._active: set[str] = set()
         self._lock = threading.Lock()
@@ -107,9 +113,12 @@ class JobRunner:
 
     def reprocess_failed_image(self, job_id: str) -> dict[str, Any]:
         job = self.database.get_job(job_id)
-        if job["kind"] != "image" or job["status"] != JobStatus.FAILED:
-            raise ValueError("Only a failed image job can be reframed")
-        if job["errorCode"] not in {
+        if job["kind"] != "image" or job["status"] not in {
+            JobStatus.FAILED,
+            JobStatus.COMPLETED,
+        }:
+            raise ValueError("Only a failed or completed image job can be reframed")
+        if job["status"] == JobStatus.FAILED and job["errorCode"] not in {
             "FRAMING_VALIDATION_FAILED",
             "CROPPING",
             "CROP",
@@ -124,8 +133,11 @@ class JobRunner:
         )
         if not source_path.is_file():
             raise FileNotFoundError(f"failed image source is missing: {source_path}")
+        raw_path = source_path.with_name(f"{source_path.stem}-raw.png")
+        if not raw_path.is_file():
+            shutil.copy2(source_path, raw_path)
         working_path = source_path.with_name(f"{source_path.stem}-reframe.png")
-        shutil.copy2(source_path, working_path)
+        shutil.copy2(raw_path, working_path)
         try:
             result = self.provider.reframe_existing_image(request, working_path)
             working_path.replace(source_path)
@@ -226,10 +238,17 @@ class JobRunner:
                 )
         project_dir = self.settings.asset_root / request.project_id / "images"
         output_path = project_dir / f"{request.shot_id}-{job['id'][-6:]}.png"
-        self.database.update_job(
-            job["id"], status=JobStatus.GENERATING, started_at=job["startedAt"] or utc_now()
-        )
-        result = self.provider.generate_image(request, output_path)
+        # Resolve reference dependencies before taking a slot, otherwise a dependent
+        # job could hold the only image slot while waiting for its master to finish.
+        # Keep the slot through download and framing validation so a rejected frame
+        # cannot release a burst of new paid image calls behind it.
+        with self.image_slots:
+            self.database.update_job(
+                job["id"],
+                status=JobStatus.GENERATING,
+                started_at=job["startedAt"] or utc_now(),
+            )
+            result = self.provider.generate_image(request, output_path)
         self.database.record_provider_request(
             project_id=request.project_id,
             job_id=job["id"],

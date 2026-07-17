@@ -9,11 +9,21 @@ from videoforge.cinematography import (
     framing_family,
     framing_visibility_contract,
     practical_motion_issues,
+    repair_practical_motion,
 )
 from videoforge.config import Settings
 from videoforge.consistency import repair_plan_consistency, validate_plan_consistency
 from videoforge.planner import DEMO_PROMPT, create_mock_plan, deterministic_seed
-from videoforge.prompting import compile_image_prompt, immutable_bible_text, prompt_hash
+from videoforge.prompting import (
+    compile_framing_retry_correction,
+    compile_image_prompt,
+    first_frame_image_direction,
+    first_frame_target,
+    immutable_bible_text,
+    prompt_hash,
+    should_reset_reference_for_retry,
+    should_use_set_plate_for_retry,
+)
 from videoforge.retry import attempt_seed, is_retryable_error
 from videoforge.schemas import ProductionPlan, ProductionStage, ProjectInput
 from videoforge.state_machine import can_transition, require_transition
@@ -46,7 +56,14 @@ def test_prompt_compiler_reuses_immutable_bible_verbatim() -> None:
     assert all(shot.image_prompt.startswith(prefix + "\n") for shot in production.shots)
     assert all("SHOT_COMPOSITION:" in shot.image_prompt for shot in production.shots)
     assert all("SHOT_START_STATE:" in shot.image_prompt for shot in production.shots)
-    assert all("SHOT_ENVIRONMENT_STATE:" not in shot.image_prompt for shot in production.shots)
+    assert all(
+        f"SHOT_ENVIRONMENT_STATE_AT_START: {shot.environment_state}" in shot.image_prompt
+        for shot in production.shots
+    )
+    assert all(
+        f"SHOT_IMAGE_DIRECTION: {first_frame_image_direction(shot)}" in shot.image_prompt
+        for shot in production.shots
+    )
     assert all("SHOT_FRAMING_REASON:" not in shot.image_prompt for shot in production.shots)
     assert all("SHOT_ACTION_AFTER_FIRST_FRAME:" not in shot.image_prompt for shot in production.shots)
     assert all("SHOT_END_STATE_DO_NOT_SHOW_YET:" not in shot.image_prompt for shot in production.shots)
@@ -246,7 +263,7 @@ def test_visibility_contract_enforces_actual_crop_without_prescribing_order() ->
     assert "Only the photograph and two fingertips" in detail
     assert "TRUE FIRST-PERSON POV" in pov
     assert "face, head, torso, and full body cannot appear" in pov
-    assert framing_family("Medium close-up (hands and pillow)") == "medium"
+    assert framing_family("Medium close-up (hands and pillow)") == "close"
 
 
 def test_photo_detail_contract_allows_printed_subject_but_not_live_actor() -> None:
@@ -258,6 +275,18 @@ def test_photo_detail_contract_allows_printed_subject_but_not_live_actor() -> No
     assert "No live face, live head, live torso" in contract
 
 
+def test_first_frame_target_strips_future_action_from_subject() -> None:
+    shot = plan().shots[0].model_copy(
+        update={"primary_subject": "Elena turning her head toward the far wall"}
+    )
+    assert first_frame_target(shot) == "Elena"
+    assert "turning" not in first_frame_image_direction(shot)
+
+
+def test_medium_close_up_uses_close_framing_contract() -> None:
+    assert framing_family("Medium close-up on Elena's face") == "close"
+
+
 def test_over_shoulder_contract_forbids_a_second_live_copy() -> None:
     contract = framing_visibility_contract(
         "Over-the-shoulder", "Elena's shoulder and the Polaroid"
@@ -265,6 +294,20 @@ def test_over_shoulder_contract_forbids_a_second_live_copy() -> None:
     assert "one live person only" in contract
     assert "Do not add a second live person" in contract
     assert "printed inside a physical photograph" in contract
+
+
+def test_shadow_close_up_excludes_actor_tv_and_room() -> None:
+    contract = framing_visibility_contract("Close-up", "The shadow on the far wall")
+    assert "SHADOW CLOSE-UP" in contract
+    assert "live person, face, body, TV" in contract
+
+
+def test_reflection_detail_allows_figure_only_inside_screen() -> None:
+    contract = framing_visibility_contract(
+        "Insert detail", "TV screen reflection with a raised hand"
+    )
+    assert "PHYSICAL SCREEN/REFLECTION DETAIL" in contract
+    assert "inside the declared optical reflection" in contract
 
 
 def test_consistency_guardian_repairs_paraphrased_prompt() -> None:
@@ -302,7 +345,205 @@ def test_attempt_seed_preserves_first_call_and_changes_retries() -> None:
     assert 0 <= attempt_seed(2**31 - 1, 3) < 2**31
 
 
-@pytest.mark.parametrize("code", [429, "500", "TIMEOUT", "CONNECTION"])
+def test_framing_retry_correction_rejects_old_camera_but_locks_continuity() -> None:
+    correction = compile_framing_retry_correction(
+        plan().shots[2],
+        "Generated shot-03 cannot be corrected by cropping: full person and room visible",
+    )
+    assert "Discard its camera placement" in correction
+    assert "full person and room visible" in correction
+    assert "identity, set design, wardrobe, and lighting only" in correction
+    assert "RETRY_FRAME_VISIBILITY_CONTRACT" in correction
+
+
+def test_late_shadow_insert_retry_resets_wide_reference() -> None:
+    shot = plan().shots[2].model_copy(
+        update={
+            "framing": "Close-up on wall shadow",
+            "primary_subject": "The shadow on the wall",
+        }
+    )
+    assert should_reset_reference_for_retry(
+        shot, 2, "FRAMING_VALIDATION_FAILED"
+    )
+    assert not should_reset_reference_for_retry(
+        shot, 1, "FRAMING_VALIDATION_FAILED"
+    )
+    assert not should_reset_reference_for_retry(shot, 3, "THROTTLING_RATE_QUOTA")
+
+
+def test_late_reflection_ots_retry_uses_actor_free_set_plate() -> None:
+    shot = plan().shots[2].model_copy(
+        update={
+            "framing": "Over-the-shoulder from behind Elena",
+            "primary_subject": "Elena's reflection in the black TV screen",
+        }
+    )
+    assert should_use_set_plate_for_retry(
+        shot, 2, "FRAMING_VALIDATION_FAILED"
+    )
+    assert not should_use_set_plate_for_retry(
+        shot, 1, "FRAMING_VALIDATION_FAILED"
+    )
+
+
+def test_shadow_closeup_keeps_installed_prop_tracked_but_offscreen() -> None:
+    production = plan()
+    bible = production.visual_bible.model_copy(
+        update={"important_prop": "A cracked TV mounted on the far wall"}
+    )
+    shot = production.shots[2].model_copy(
+        update={
+            "framing": "Close-up on wall shadow",
+            "primary_subject": "The shadow on the wall",
+            "prop_state": "A cracked TV mounted on the far wall",
+            "start_state": (
+                "BODY: standing | HANDS: at sides | "
+                "PROP: A cracked TV mounted on the far wall"
+            ),
+        }
+    )
+    prompt = compile_image_prompt(bible, shot)
+    assert "OFFSCREEN_FIXED_PROP_CONSTRAINT" in prompt
+    assert "SHOT_PROP_STATE_AT_START" not in prompt
+    assert "PROP_BIBLE" not in prompt
+
+
+def test_face_closeup_keeps_unrelated_installed_prop_offscreen() -> None:
+    production = plan()
+    bible = production.visual_bible.model_copy(
+        update={"important_prop": "A cracked TV mounted on the far wall"}
+    )
+    shot = production.shots[1].model_copy(
+        update={
+            "framing": "Close-up on Elena's face",
+            "primary_subject": "Elena's face",
+            "prop_state": "A cracked TV mounted on the far wall",
+            "start_state": (
+                "BODY: standing | HANDS: at sides | "
+                "PROP: A cracked TV mounted on the far wall"
+            ),
+        }
+    )
+    prompt = compile_image_prompt(bible, shot)
+    assert "OFFSCREEN_FIXED_PROP_CONSTRAINT" in prompt
+    assert "PROP_BIBLE" not in prompt
+
+
+def test_tv_detail_keeps_named_installed_tv_visible() -> None:
+    production = plan()
+    bible = production.visual_bible.model_copy(
+        update={"important_prop": "A cracked TV mounted on the far wall"}
+    )
+    shot = production.shots[2].model_copy(
+        update={
+            "framing": "Insert detail on TV reflection",
+            "primary_subject": "TV screen reflection",
+            "prop_state": "A cracked TV mounted on the far wall",
+            "start_state": (
+                "BODY: standing | HANDS: at sides | "
+                "PROP: A cracked TV mounted on the far wall"
+            ),
+        }
+    )
+    prompt = compile_image_prompt(bible, shot)
+    assert "VISIBLE_PROP_CONSTRAINT" in prompt
+    assert "PROP_BIBLE" in prompt
+
+
+def test_practical_repair_treats_shadow_as_environment_and_fixes_static_action() -> None:
+    production = plan()
+    bible = production.visual_bible.model_copy(
+        update={"important_prop": "None — a moving shadow is the story element"}
+    )
+    shots = list(production.shots)
+    shots[0] = shots[0].model_copy(
+        update={
+            "start_state": "BODY: standing | HANDS: down | PROP: none",
+            "end_state": "BODY: standing | HANDS: down | PROP: shadow on wall",
+            "prop_state": "none",
+            "subject_action": "She lowers her arm.",
+        }
+    )
+    repaired = repair_practical_motion(
+        production.model_copy(update={"visual_bible": bible, "shots": shots})
+    )
+    issues = practical_motion_issues(repaired)
+    assert all("makes the prop appear or disappear" not in issue for issue in issues)
+    assert all("does not create a new physical endState" not in issue for issue in issues)
+    assert repaired.shots[0].prop_state == "none"
+    assert repaired.shots[0].subject_action != "She lowers her arm."
+
+
+def test_practical_repair_tracks_a_fixed_mounted_prop_in_every_shot() -> None:
+    production = plan()
+    bible = production.visual_bible.model_copy(
+        update={"important_prop": "A cracked TV mounted on the far wall"}
+    )
+    shots = [
+        shot.model_copy(
+            update={
+                "start_state": shot.start_state.rsplit("| PROP:", 1)[0]
+                + "| PROP: none",
+                "end_state": shot.end_state.rsplit("| PROP:", 1)[0]
+                + "| PROP: none",
+                "prop_state": "none",
+            }
+        )
+        for shot in production.shots
+    ]
+    repaired = repair_practical_motion(
+        production.model_copy(update={"visual_bible": bible, "shots": shots})
+    )
+    assert all("cracked TV mounted" in shot.prop_state for shot in repaired.shots)
+    assert all("PROP: A cracked TV mounted" in shot.start_state for shot in repaired.shots)
+
+
+def test_simple_eye_head_and_jaw_reactions_may_keep_the_same_ledger() -> None:
+    production = plan()
+    reactions = (
+        "Her eyes shift toward the doorway.",
+        "She turns her head toward the wall.",
+        "She tightens her jaw.",
+    )
+    shots = [
+        shot.model_copy(
+            update={"subject_action": reaction, "end_state": shot.start_state}
+        )
+        for shot, reaction in zip(production.shots, reactions)
+    ]
+    issues = practical_motion_issues(production.model_copy(update={"shots": shots}))
+    assert all("does not create a new physical endState" not in issue for issue in issues)
+
+
+def test_faint_visual_description_is_not_treated_as_unfilmable_motion() -> None:
+    production = plan()
+    shots = list(production.shots)
+    shots[0] = shots[0].model_copy(
+        update={"environment_state": "A faintly lit wall remains visible behind her."}
+    )
+    issues = practical_motion_issues(production.model_copy(update={"shots": shots}))
+    assert all("poetic, sonic, or micro-atmospheric" not in issue for issue in issues)
+
+
+def test_pov_cannot_show_the_observers_reflection() -> None:
+    production = plan()
+    shots = list(production.shots)
+    shots[-1] = shots[-1].model_copy(
+        update={
+            "framing": "POV",
+            "primary_subject": "Elena's reflection in the mirror",
+            "framing_reason": "Reveal Elena in a mirror from her own point of view.",
+            "image_delta": "POV of Elena's reflection in a mirror.",
+        }
+    )
+    issues = cinematography_issues(production.model_copy(update={"shots": shots}))
+    assert any("no-observer POV visibility contract" in issue for issue in issues)
+
+
+@pytest.mark.parametrize(
+    "code", [429, "500", "TIMEOUT", "CONNECTION", "THROTTLING_RATE_QUOTA"]
+)
 def test_retry_classification_allows_transport_failures(code) -> None:
     assert is_retryable_error(code)
 

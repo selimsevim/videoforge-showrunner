@@ -9,14 +9,27 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .budget import enforce_budget, estimate_budget
-from .cinematography import framing_family
+from .cinematography import framing_family, repair_practical_motion
 from .config import Settings
 from .consistency import repair_plan_consistency
 from .db import Database
 from .jobs import JobRunner
 from .planner import DEMO_PROMPT
-from .prompting import compile_image_prompt, first_frame_target, prompt_hash
-from .providers import MockShowrunnerProvider, QwenCloudProvider, ShowrunnerProvider
+from .prompting import (
+    compile_framing_retry_correction,
+    compile_image_prompt,
+    first_frame_image_direction,
+    first_frame_target,
+    prompt_hash,
+    should_reset_reference_for_retry,
+    should_use_set_plate_for_retry,
+)
+from .providers import (
+    MockShowrunnerProvider,
+    ProviderError,
+    QwenCloudProvider,
+    ShowrunnerProvider,
+)
 from .retry import attempt_seed
 from .schemas import (
     GenerationConfirmation,
@@ -96,6 +109,17 @@ def create_app(
             content={"detail": str(exc), "code": "INVALID_STATE"},
         )
 
+    @app.exception_handler(ProviderError)
+    async def provider_failure(_: Request, exc: ProviderError) -> JSONResponse:
+        return JSONResponse(
+            status_code=503 if exc.retryable else 502,
+            content={
+                "detail": str(exc),
+                "code": exc.code,
+                "retryable": exc.retryable,
+            },
+        )
+
     @app.get("/", include_in_schema=False)
     def index() -> FileResponse:
         return FileResponse(settings.web_root / "index.html")
@@ -127,6 +151,7 @@ def create_app(
                 "defaultShots": settings.default_shots,
                 "maxVideoDurationSeconds": settings.max_video_duration_seconds,
                 "maxProjectRetries": settings.max_project_retries,
+                "maxConcurrentImageTasks": settings.max_concurrent_image_tasks,
                 "maxConcurrentVideoTasks": settings.max_concurrent_video_tasks,
             },
             "pricing": {
@@ -182,6 +207,7 @@ def create_app(
             plan = selected_provider.create_production_plan(
                 project_id, database.project_input(project_id)
             )
+            plan = repair_practical_motion(plan)
             plan, report = repair_plan_consistency(plan)
             enforce_budget(plan, settings)
             budget = estimate_budget(plan, settings)
@@ -213,7 +239,7 @@ def create_app(
     def patch_plan(project_id: str, body: ProductionPlan) -> dict[str, Any]:
         if body.project_id != project_id:
             raise ValueError("production plan projectId does not match route project ID")
-        repaired, report = repair_plan_consistency(body)
+        repaired, report = repair_plan_consistency(repair_practical_motion(body))
         enforce_budget(repaired, settings)
         budget = estimate_budget(repaired, settings)
         database.save_plan(repaired, budget.model_dump(by_alias=True))
@@ -260,10 +286,26 @@ def create_app(
         reference_job_id: str | None = None,
         reference_image_url: str | None = None,
         reference_image_path: str | None = None,
+        retry_error_code: str | None = None,
+        retry_error_message: str | None = None,
+        continuity_reference_mode: str | None = None,
     ) -> str:
-        plan = ProductionPlan.model_validate(project["plan"])
+        plan = repair_practical_motion(ProductionPlan.model_validate(project["plan"]))
         planned_shot = next(item for item in plan.shots if item.id == shot["id"])
         prompt = compile_image_prompt(plan.visual_bible, planned_shot)
+        framing_failure_codes = {
+            "FRAMING_VALIDATION_FAILED",
+            # Compatibility with jobs created before framing codes were preserved.
+            "CROP",
+            "CROPPING",
+        }
+        if (
+            retry_error_code in framing_failure_codes
+            and retry_error_message
+        ):
+            prompt += "\n" + compile_framing_retry_correction(
+                planned_shot, retry_error_message
+            )
         request = ProviderImageRequest(
             project_id=project["id"],
             shot_id=shot["id"],
@@ -275,10 +317,11 @@ def create_app(
             reference_job_id=reference_job_id,
             reference_image_url=reference_image_url,
             reference_image_path=reference_image_path,
+            continuity_reference_mode=continuity_reference_mode,
             framing=planned_shot.framing,
             subject_position=planned_shot.subject_position,
             framing_target=first_frame_target(planned_shot),
-            image_delta=planned_shot.image_delta,
+            image_delta=first_frame_image_direction(planned_shot),
         )
         return database.create_job(
             project_id=project["id"],
@@ -303,6 +346,14 @@ def create_app(
                 "referenceShotId": reference_shot_id,
                 "baseSeed": shot["imageSeed"],
                 "attemptSeed": request.seed,
+                "retryReasonCode": retry_error_code,
+                "correctiveFramingRetry": retry_error_code in framing_failure_codes,
+                "continuityReferenceMode": continuity_reference_mode
+                or (
+                    "master-image"
+                    if reference_job_id or reference_image_url
+                    else "none"
+                ),
             },
             estimated_cost=settings.image_cost_cny,
             retry_count=retry,
@@ -365,6 +416,8 @@ def create_app(
             for job in project["jobs"]
             if job["kind"] == "image" and job["shotId"] == shot_id
         ]
+        if any(job["status"] in ACTIVE_JOB_STATUSES for job in attempts):
+            raise ValueError(f"{shot_id} already has an image job in the queue")
         retries = max((job["retryCount"] for job in attempts), default=-1) + 1
         if retries > settings.max_project_retries:
             raise ValueError(
@@ -372,10 +425,23 @@ def create_app(
             )
         database.set_stage(project_id, ProductionStage.STORYBOARD_GENERATING)
         master = _reference_master(project)
+        plan = repair_practical_motion(ProductionPlan.model_validate(project["plan"]))
+        planned_shot = next(item for item in plan.shots if item.id == shot_id)
+        previous_error_code = attempts[-1]["errorCode"] if attempts else None
+        reset_reference = should_reset_reference_for_retry(
+            planned_shot, retries, previous_error_code
+        )
+        use_set_plate = should_use_set_plate_for_retry(
+            planned_shot, retries, previous_error_code
+        )
         reference_url = None
         reference_path = None
         reference_shot_id = None
-        if selected_provider.name == "qwen" and shot["id"] != master["id"]:
+        if (
+            selected_provider.name == "qwen"
+            and shot["id"] != master["id"]
+            and not reset_reference
+        ):
             reference = database.latest_asset(project_id, master["id"], "image")
             if not reference or not reference["remoteUrl"]:
                 raise ValueError("The continuity master must be regenerated first")
@@ -389,6 +455,13 @@ def create_app(
             reference_shot_id=reference_shot_id,
             reference_image_url=reference_url,
             reference_image_path=reference_path,
+            retry_error_code=previous_error_code,
+            retry_error_message=attempts[-1]["errorMessage"] if attempts else None,
+            continuity_reference_mode=(
+                "bible-only-composition-reset"
+                if reset_reference
+                else ("set-plate-composition-reset" if use_set_plate else None)
+            ),
         )
         runner.enqueue(job_id)
         return {"projectId": project_id, "jobId": job_id, "status": "accepted"}

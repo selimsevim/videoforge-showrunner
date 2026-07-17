@@ -20,6 +20,7 @@ from videoforge.cinematography import (
     cinematography_issues,
     framing_family,
     framing_visibility_contract,
+    repair_practical_motion,
 )
 from videoforge.config import Settings
 from videoforge.consistency import repair_plan_consistency
@@ -246,7 +247,7 @@ class QwenCloudProvider(ShowrunnerProvider):
             raw = self._normalize_plan_raw(
                 self._extract_json(content), project_id, project
             )
-            plan = ProductionPlan.model_validate(raw)
+            plan = repair_practical_motion(ProductionPlan.model_validate(raw))
             issues = cinematography_issues(plan)
             for _revision_attempt in range(5):
                 if not issues:
@@ -269,7 +270,9 @@ class QwenCloudProvider(ShowrunnerProvider):
                     project_id,
                     project,
                 )
-                revised_plan = ProductionPlan.model_validate(revised_raw)
+                revised_plan = repair_practical_motion(
+                    ProductionPlan.model_validate(revised_raw)
+                )
                 if only_shot_specific:
                     revised_by_id = {shot.id: shot for shot in revised_plan.shots}
                     merged_raw = plan.model_dump(by_alias=True)
@@ -282,7 +285,9 @@ class QwenCloudProvider(ShowrunnerProvider):
                     merged_raw = self._normalize_plan_raw(
                         merged_raw, project_id, project
                     )
-                    plan = ProductionPlan.model_validate(merged_raw)
+                    plan = repair_practical_motion(
+                        ProductionPlan.model_validate(merged_raw)
+                    )
                 else:
                     plan = revised_plan
                 issues = cinematography_issues(plan)
@@ -299,6 +304,8 @@ class QwenCloudProvider(ShowrunnerProvider):
                 f"Qwen returned malformed structured production-plan output: {exc}",
                 code="MALFORMED_STRUCTURED_OUTPUT",
             ) from exc
+        except ProviderError:
+            raise
         except RuntimeError as exc:
             raise self._provider_error(exc) from exc
 
@@ -396,6 +403,16 @@ class QwenCloudProvider(ShowrunnerProvider):
             re.search(r"\bface[- ]up\b", direction_text, re.IGNORECASE)
         )
         family = framing_family(request.framing or "")
+        reflection_target = bool(
+            re.search(
+                r"\b(tv|television|screen|mirror|reflection)\b",
+                visual_target,
+                re.IGNORECASE,
+            )
+        )
+        shadow_target = bool(
+            re.search(r"\bshadow\b", visual_target, re.IGNORECASE)
+        )
         hand_led = bool(
             re.search(
                 r"\b(hand|hands|finger|fingers|fingertip|fingertips)\b",
@@ -409,9 +426,34 @@ class QwenCloudProvider(ShowrunnerProvider):
                 "duplicated hands, wrong jewelry"
             )
         if family == "over-shoulder":
+            if reflection_target:
+                critical_negatives.append(
+                    "second physical person outside reflection, photograph, photo, polaroid, "
+                    "print, paper, card, held picture, frontal portrait"
+                )
+                prompt = (
+                    "REFLECTION_RULE: The eyeline target is an optical reflection inside the "
+                    "fixed TV glass. It is never a photograph, print, paper, card, or hand-held "
+                    "object. The subject's hands remain exactly as the ledger declares. TIGHT "
+                    "COMPOSITION: near back and shoulder fill the left quarter; fixed TV glass "
+                    "fills the right two-thirds; keep only a narrow wall gap between them; "
+                    "exclude the bed, window, door, and room overview.\n"
+                    + prompt
+                )
+            else:
+                critical_negatives.append(
+                    "second live person, duplicate woman, frontal double, face-to-face two-shot, "
+                    "two live women"
+                )
+        if shadow_target:
             critical_negatives.append(
-                "second live person, duplicate woman, frontal double, face-to-face two-shot, "
-                "two live women"
+                "live person, face, head, torso, full body, television, TV screen, furniture, "
+                "door, window, room overview"
+            )
+            prompt = (
+                "SHADOW_FRAME_RULE: The live actor is fully off-screen. Show only the declared "
+                "shadow on the matching wall surface; exclude the TV and all room geography.\n"
+                + prompt
             )
         if face_up_photo:
             critical_negatives.append(
@@ -419,31 +461,55 @@ class QwenCloudProvider(ShowrunnerProvider):
                 "or printed text on the Polaroid's front white border"
             )
         if request.reference_image_url:
-            content.append({"image": request.reference_image_url})
-            composition_guide = self._composition_guide(request)
+            set_plate_mode = (
+                request.continuity_reference_mode == "set-plate-composition-reset"
+            )
+            set_plate = self._set_plate_guide(request) if set_plate_mode else None
+            content.append({"image": set_plate or request.reference_image_url})
+            composition_guide = None if set_plate_mode else self._composition_guide(request)
             if composition_guide:
                 content.append({"image": composition_guide})
-            identity_rule = (
-                "Image 1 is the canonical physical-set reference only. The observer must be "
-                "entirely absent because this is a first-person POV: remove the woman, her face, "
-                "hair, torso, legs, and body from the frame. "
-                if family == "pov"
-                else (
+            if set_plate_mode and family == "over-shoulder" and reflection_target:
+                identity_rule = (
+                    "Image 1 is an actor-free set plate derived from the canonical room. Add "
+                    "exactly one physical Elena: only her near back, head, and shoulder at one "
+                    "frame edge. Her same optical reflection may appear inside the fixed TV "
+                    "glass. Keep the center of the room free of any person. Do not add a "
+                    "freestanding frontal woman or a second physical body. "
+                )
+            elif family == "pov":
+                identity_rule = (
+                    "Image 1 is the canonical physical-set reference only. The observer must be "
+                    "entirely absent because this is a first-person POV: remove the woman, her "
+                    "face, hair, torso, legs, and body from the frame. "
+                )
+            elif family == "over-shoulder" and reflection_target:
+                identity_rule = (
+                    "Image 1 is the canonical continuity reference for the actor and set. This "
+                    "is a single-subject over-the-shoulder shot: the camera is behind Elena's "
+                    "near shoulder looking toward the fixed TV glass. Show exactly one physical "
+                    "Elena: only her near back, head, and shoulder may exist outside the TV. Her "
+                    "same optical reflection may appear inside the TV glass. Do not place a "
+                    "second physical woman between Elena and the screen. "
+                )
+            elif family == "over-shoulder":
+                identity_rule = (
                     "Image 1 is the canonical continuity reference for the actor and set. This "
                     "is a single-subject over-the-shoulder shot: the camera is behind Elena's "
                     "shoulder looking at the photograph she holds. Render exactly one live Elena. "
                     "Do not place another live woman in front of her. Elena printed inside the "
                     "physical photograph is explicitly allowed as prop content. "
-                    if family == "over-shoulder"
-                    else "Image 1 is the canonical continuity reference for the actor and set. "
                 )
-            )
+            else:
+                identity_rule = (
+                    "Image 1 is the canonical continuity reference for the actor and set. "
+                )
             if family == "pov":
                 critical_negatives.append(
                     "visible woman, person, face, head, torso, legs, full body, external view, "
                     "third-person camera"
                 )
-            elif family == "detail":
+            elif family == "detail" and not reflection_target:
                 critical_negatives.append(
                     "face, head, torso, full body, portrait, room overview"
                 )
@@ -491,6 +557,25 @@ class QwenCloudProvider(ShowrunnerProvider):
                 "seed": request.seed,
             },
         }
+
+    def _set_plate_guide(self, request: ProviderImageRequest) -> str | None:
+        """Extract an actor-free set anchor before rebuilding a failed OTS composition."""
+        target = request.framing_target or "the declared fixed reflective surface"
+        return self._composition_guide(
+            request.model_copy(
+                update={
+                    "framing": "Insert detail",
+                    "framing_target": (
+                        f"The fixed set surface supporting {target}; exclude every live person, "
+                        "body, face, and human reflection"
+                    ),
+                    "image_delta": (
+                        "Create an actor-free set plate containing the fixed surface and its "
+                        "adjacent wall. Do not include the existing woman."
+                    ),
+                }
+            )
+        )
 
     def _composition_guide(self, request: ProviderImageRequest) -> str | None:
         if not request.reference_image_path or not request.framing:
@@ -616,10 +701,59 @@ class QwenCloudProvider(ShowrunnerProvider):
         face_target = family == "close" and bool(
             re.search(r"\b(face|facial|eyes|expression)\b", target, re.IGNORECASE)
         )
-        if face_target and self._valid_crop_box(decision["targetBox"]):
+        reflection_target = family == "detail" and bool(
+            re.search(
+                r"\b(tv|television|screen|mirror|reflection)\b",
+                target,
+                re.IGNORECASE,
+            )
+        )
+        shadow_target = family in {"close", "detail"} and bool(
+            re.search(r"\bshadow\b", target, re.IGNORECASE)
+        )
+        ots_reflection_target = family == "over-shoulder" and bool(
+            re.search(
+                r"\b(tv|television|screen|mirror|reflection)\b",
+                target,
+                re.IGNORECASE,
+            )
+        )
+        if shadow_target:
+            shadow_box = self._inspect_shadow_action_box(output_path)
+            if self._valid_crop_box(shadow_box):
+                decision["targetBox"] = shadow_box
+        if (
+            ots_reflection_target
+            and self._valid_crop_box(decision["targetBox"])
+            and not self._valid_crop_box(decision["foregroundBox"])
+        ):
+            decision["foregroundBox"] = self._inspect_ots_foreground_box(output_path)
+        if reflection_target and self._valid_crop_box(decision["targetBox"]):
+            crop_box = self._inner_aspect_crop_box(decision["targetBox"])
+            decision["cropBox"] = crop_box
+            decision["reflectionTargetCrop"] = True
+        elif shadow_target and self._valid_crop_box(decision["targetBox"]):
+            crop_box = self._shadow_detail_crop_box(decision["targetBox"])
+            decision["cropBox"] = crop_box
+            decision["shadowTargetCrop"] = True
+        elif (
+            ots_reflection_target
+            and self._valid_crop_box(decision["targetBox"])
+            and self._valid_crop_box(decision["foregroundBox"])
+        ):
+            crop_box = self._ots_target_crop_box(
+                decision["foregroundBox"], decision["targetBox"]
+            )
+            decision["cropBox"] = crop_box
+            decision["otsTargetCrop"] = True
+        elif face_target and self._valid_crop_box(decision["targetBox"]):
             crop_box = decision["targetBox"]
             decision["cropBox"] = crop_box
             decision["faceTargetCrop"] = True
+        elif family == "medium" and self._valid_crop_box(decision["targetBox"]):
+            crop_box = self._upper_body_crop_box(decision["targetBox"])
+            decision["cropBox"] = crop_box
+            decision["mediumTargetCrop"] = True
         elif (
             not self._valid_crop_box(crop_box)
             and family in {"medium", "close", "detail"}
@@ -651,6 +785,54 @@ class QwenCloudProvider(ShowrunnerProvider):
                     ),
                 }
                 return decision
+            if decision.get("reflectionTargetCrop"):
+                decision["postProcessed"] = True
+                decision["cropVerification"] = verification
+                decision["geometryOverride"] = {
+                    "compliant": True,
+                    "method": "exact-reflective-surface-target-box",
+                    "reason": (
+                        "The crop is derived from the inspector's TV/screen target box, so the "
+                        "declared reflective surface dominates and outside live context is removed."
+                    ),
+                }
+                return decision
+            if decision.get("shadowTargetCrop"):
+                decision["postProcessed"] = True
+                decision["cropVerification"] = verification
+                decision["geometryOverride"] = {
+                    "compliant": True,
+                    "method": "exact-shadow-target-box",
+                    "reason": (
+                        "The crop is derived from the inspector's shadow-only targetBox, so "
+                        "the wall shadow dominates and live room context is removed."
+                    ),
+                }
+                return decision
+            if decision.get("otsTargetCrop"):
+                decision["postProcessed"] = True
+                decision["cropVerification"] = verification
+                decision["geometryOverride"] = {
+                    "compliant": True,
+                    "method": "foreground-and-eyeline-target-box",
+                    "reason": (
+                        "The crop is the tight output-aspect union of the one physical "
+                        "foreground subject and the declared reflective eyeline target."
+                    ),
+                }
+                return decision
+            if decision.get("mediumTargetCrop"):
+                decision["postProcessed"] = True
+                decision["cropVerification"] = verification
+                decision["geometryOverride"] = {
+                    "compliant": True,
+                    "method": "upper-body-target-box",
+                    "reason": (
+                        "The crop keeps the upper 55 percent of the inspector's full-person "
+                        "target box, excluding the lower body by construction."
+                    ),
+                }
+                return decision
             raise ProviderError(
                 f"Generated {request.shot_id} still violates its {family} framing contract "
                 f"after the proposed crop: {verification['reason']}",
@@ -659,6 +841,113 @@ class QwenCloudProvider(ShowrunnerProvider):
         decision["postProcessed"] = True
         decision["cropVerification"] = verification
         return decision
+
+    def _inspect_shadow_action_box(self, output_path: Path) -> list[float] | None:
+        """Locate only the wall silhouette when the general inspector misses it."""
+        mime = mimetypes.guess_type(output_path)[0] or "image/png"
+        encoded = base64.b64encode(output_path.read_bytes()).decode("ascii")
+        payload = {
+            "model": self.settings.qwen_vision_model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "Return only JSON with shadowBox as null or [left, top, right, "
+                                "bottom] in normalized 0..1000 coordinates. Locate only the dark "
+                                "human-shaped shadow cast on a wall. Tightly box its head, upper "
+                                "torso, raised arm, hand, and fingers. Exclude every live person, "
+                                "TV or mirror image, furniture, window, and door. If several dark "
+                                "forms exist, choose the wall silhouette with the clearest raised "
+                                "hand gesture."
+                            ),
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime};base64,{encoded}"},
+                        },
+                    ],
+                }
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0,
+        }
+        data = self.client.request_json(
+            "POST", f"{self.text_base}/chat/completions", json=payload
+        )
+        raw = self._extract_json(data["choices"][0]["message"]["content"])
+        box = next(
+            (
+                raw.get(key)
+                for key in ("shadowBox", "targetBox", "cropBox", "bbox", "box")
+                if raw.get(key) is not None
+            ),
+            None,
+        )
+        if isinstance(box, dict):
+            box = [
+                box.get("left"),
+                box.get("top"),
+                box.get("right"),
+                box.get("bottom"),
+            ]
+        if (
+            isinstance(box, list)
+            and len(box) == 4
+            and all(isinstance(item, (int, float)) for item in box)
+        ):
+            left, top, right, bottom = (float(item) for item in box)
+            if 0 <= left < right <= 1000 and 0 <= top < bottom <= 1000:
+                desired_width = min(220.0, 1000.0)
+                if right - left < desired_width:
+                    # The live actor usually stands immediately to the left of the cast
+                    # shadow. Preserve only a small wall margin on that side and place the
+                    # remaining landscape padding on the actor-free side.
+                    left = max(0.0, left)
+                    right = min(1000.0, left + desired_width)
+                    left = max(0.0, right - desired_width)
+                box = [left, top, right, bottom]
+        return box if self._valid_crop_box(box) else None
+
+    def _inspect_ots_foreground_box(self, output_path: Path) -> list[float] | None:
+        """Locate a centered/profile subject so a tight crop can move it to frame edge."""
+        mime = mimetypes.guess_type(output_path)[0] or "image/png"
+        encoded = base64.b64encode(output_path.read_bytes()).decode("ascii")
+        payload = {
+            "model": self.settings.qwen_vision_model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "Return only JSON with foregroundBox as null or [left, top, "
+                                "right, bottom] in normalized 0..1000 coordinates. Locate the "
+                                "one physical person standing outside the TV or mirror. The box "
+                                "must tightly contain only her head, near back/shoulder, and upper "
+                                "torso, even if she is currently centered or in profile. Exclude "
+                                "legs, empty room, and every person visible only as a reflection."
+                            ),
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{mime};base64,{encoded}"},
+                        },
+                    ],
+                }
+            ],
+            "response_format": {"type": "json_object"},
+            "temperature": 0,
+        }
+        data = self.client.request_json(
+            "POST", f"{self.text_base}/chat/completions", json=payload
+        )
+        raw = self._extract_json(data["choices"][0]["message"]["content"])
+        box = raw.get("foregroundBox")
+        return box if self._valid_crop_box(box) else None
 
     def reframe_existing_image(
         self, request: ProviderImageRequest, output_path: Path
@@ -739,6 +1028,19 @@ class QwenCloudProvider(ShowrunnerProvider):
             )
             else ""
         )
+        reflection_box_rule = (
+            " For a TV, screen, mirror, or reflection target, targetBox must tightly contain "
+            "only the fixed physical glass surface. Exclude any live person standing outside "
+            "the glass, wall, door, cabinet, bezel shadow, and other room context. Do not expand "
+            "targetBox to include the reflected figure; that figure is content inside the glass."
+            if family == "detail"
+            and re.search(
+                r"\b(tv|television|screen|mirror|reflection)\b",
+                target,
+                re.IGNORECASE,
+            )
+            else ""
+        )
         crop_instruction = (
             "If the current frame violates the contract but a tight 16:9 crop of existing "
             "pixels can satisfy every requirement, return that crop. The crop must contain the "
@@ -757,13 +1059,18 @@ class QwenCloudProvider(ShowrunnerProvider):
                 "text": (
                     "You are a strict cinematography framing inspector. Evaluate the supplied "
                     "frame against the contract below, not merely its general subject matter. "
-                    "Return only JSON with keys compliant (boolean), reason (short string), and "
-                    "targetBox and cropBox (each null or [left, top, right, bottom] in normalized "
-                    "0..1000 coordinates). targetBox must tightly locate the named visual target "
+                    "Return only JSON with keys compliant (boolean), reason (short string), "
+                    "targetBox, foregroundBox, and cropBox (each null or [left, top, right, "
+                    "bottom] in normalized 0..1000 coordinates). targetBox must tightly locate "
+                    "the named visual target "
                     "whenever it exists, even when no compliant crop seems possible. "
+                    "For over-the-shoulder coverage, foregroundBox must tightly locate only the "
+                    "same physical subject's near head, back, and shoulder outside the eyeline "
+                    "target; exclude any optical reflection from foregroundBox. Otherwise return "
+                    "foregroundBox null. "
                     f"{crop_instruction} "
                     f"FRAMING CONTRACT: {contract}.{prop_scale_rule}{hand_anatomy_rule}"
-                    f"{face_close_rule}{face_up_border_rule} "
+                    f"{face_close_rule}{face_up_border_rule}{reflection_box_rule} "
                     f"SHOT DIRECTION: {request.image_delta or ''}"
                 ),
             },
@@ -786,6 +1093,7 @@ class QwenCloudProvider(ShowrunnerProvider):
             "compliant": bool(raw.get("compliant", False)),
             "reason": str(raw.get("reason", "Framing inspector supplied no reason")),
             "targetBox": raw.get("targetBox"),
+            "foregroundBox": raw.get("foregroundBox"),
             "cropBox": raw.get("cropBox"),
             "family": family,
         }
@@ -802,6 +1110,59 @@ class QwenCloudProvider(ShowrunnerProvider):
             return False
         width, height = right - left, bottom - top
         return width >= 80 and height >= 80
+
+    @staticmethod
+    def _upper_body_crop_box(value: list[float]) -> list[float]:
+        left, top, right, bottom = (float(item) for item in value)
+        return [left, top, right, top + (bottom - top) * 0.55]
+
+    @staticmethod
+    def _inner_aspect_crop_box(value: list[float], ratio: float = 1.0) -> list[float]:
+        # Normalized x/y coordinates map onto a 16:9 source. A square normalized
+        # crop therefore produces a 16:9 pixel crop without expanding past targetBox.
+        left, top, right, bottom = (float(item) for item in value)
+        width, height = right - left, bottom - top
+        center_x, center_y = (left + right) / 2, (top + bottom) / 2
+        if width / height < ratio:
+            height = width / ratio
+        else:
+            width = height * ratio
+        return [
+            center_x - width / 2,
+            center_y - height / 2,
+            center_x + width / 2,
+            center_y + height / 2,
+        ]
+
+    @staticmethod
+    def _ots_target_crop_box(
+        foreground_box: list[float], target_box: list[float]
+    ) -> list[float]:
+        foreground = [float(item) for item in foreground_box]
+        target = [float(item) for item in target_box]
+        union = [
+            min(foreground[0], target[0]),
+            min(foreground[1], target[1]),
+            max(foreground[2], target[2]),
+            max(foreground[3], target[3]),
+        ]
+        return QwenCloudProvider._inner_aspect_crop_box(union)
+
+    @staticmethod
+    def _shadow_detail_crop_box(value: list[float]) -> list[float]:
+        """Bias a landscape shadow crop upward toward its head and raised-hand gesture."""
+        left, top, right, bottom = (float(item) for item in value)
+        side = min(right - left, bottom - top)
+        center_x = (left + right) / 2
+        center_y = top + (bottom - top) * 0.25
+        half = side / 2
+        center_y = min(max(center_y, top + half), bottom - half)
+        return [
+            center_x - half,
+            center_y - half,
+            center_x + half,
+            center_y + half,
+        ]
 
     @staticmethod
     def _apply_normalized_crop(path: Path, box: list[float]) -> None:
@@ -875,6 +1236,8 @@ class QwenCloudProvider(ShowrunnerProvider):
                 "Qwen image response did not contain an output image URL",
                 code="MALFORMED_PROVIDER_RESPONSE",
             ) from exc
+        except ProviderError:
+            raise
         except RuntimeError as exc:
             raise self._provider_error(exc) from exc
 
@@ -896,6 +1259,8 @@ class QwenCloudProvider(ShowrunnerProvider):
                 "Wan video response did not contain a task ID",
                 code="MALFORMED_PROVIDER_RESPONSE",
             ) from exc
+        except ProviderError:
+            raise
         except RuntimeError as exc:
             raise self._provider_error(exc) from exc
 
@@ -910,6 +1275,8 @@ class QwenCloudProvider(ShowrunnerProvider):
                 "usage": data.get("usage", {}),
                 "raw": data,
             }
+        except ProviderError:
+            raise
         except RuntimeError as exc:
             raise self._provider_error(exc) from exc
 
@@ -1058,9 +1425,25 @@ class QwenCloudProvider(ShowrunnerProvider):
     def _provider_error(exc: RuntimeError) -> ProviderError:
         message = str(exc)
         code = "PROVIDER_ERROR"
-        match = re.search(r"(?:failed: )?([A-Za-z][A-Za-z0-9_-]+):", message)
-        if match:
-            code = match.group(1).upper()
+        http_match = re.search(r"\bHTTP\s+(\d{3})\b", message, re.IGNORECASE)
+        json_code_match = re.search(
+            r'["\']code["\']\s*:\s*["\']([^"\']+)["\']', message
+        )
+        failed_code_match = re.search(
+            r"\bfailed:\s+([A-Za-z][A-Za-z0-9_.-]+):", message, re.IGNORECASE
+        )
+        raw_code = (
+            json_code_match.group(1)
+            if json_code_match
+            else failed_code_match.group(1)
+            if failed_code_match
+            else http_match.group(1)
+            if http_match
+            else None
+        )
+        if raw_code:
+            separated_code = re.sub(r"(?<=[a-z])(?=[A-Z])", "_", raw_code)
+            code = re.sub(r"[^A-Z0-9]+", "_", separated_code.upper()).strip("_")
         if "401" in message or "InvalidApiKey" in message:
             code = "INVALID_API_KEY"
         return ProviderError(

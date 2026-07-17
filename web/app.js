@@ -304,11 +304,36 @@ function renderConsistency(report) {
   </div>`;
 }
 
+function imageFailureKind(job) {
+  const code = String(job?.errorCode || "").toUpperCase();
+  const message = String(job?.errorMessage || "").toLowerCase();
+  if (code === "429" || code.includes("THROTTLING_RATE") || message.includes("rate limit")) return "rate";
+  if (["FRAMING_VALIDATION_FAILED", "CROP", "CROPPING"].includes(code)) return "framing";
+  return "other";
+}
+
+function imageFailureCopy(job) {
+  const kind = imageFailureKind(job);
+  if (kind === "rate") {
+    return "Qwen Cloud rate limit reached; no image was returned for this attempt. Image calls now run one at a time. Let the queue drain, then retry this shot once.";
+  }
+  if (kind === "framing") {
+    return `The generated image broke this shot’s framing contract. The next retry will use this diagnosis to create a different composition: ${job.errorMessage}`;
+  }
+  return job?.errorMessage || "Image generation failed.";
+}
+
 function storyboardCard(shot) {
   const image = asset(shot, "image");
   const job = latestJob("image", shot.id);
   const busy = job && ACTIVE_JOBS.has(job.status);
   const failed = job?.status === "FAILED";
+  const failureKind = failed ? imageFailureKind(job) : null;
+  const retryLabel = failureKind === "rate"
+    ? "Retry after queue clears"
+    : failureKind === "framing"
+      ? "Regenerate corrected frame"
+      : "Regenerate image";
   const visual = image
     ? `<img src="${esc(image.localUrl)}" alt="Storyboard ${esc(shot.id)}" />`
     : `<div class="skeleton"></div>${busy ? `<div class="shot-overlay"><div><div class="spinner"></div><p>${esc(job.status)}</p></div></div>` : ""}`;
@@ -318,10 +343,10 @@ function storyboardCard(shot) {
     <div class="shot-card-body">
       <div class="shot-meta"><div><span>Seed</span><strong>${shot.imageSeed}</strong></div><div><span>Model</span><strong>${esc(state.config.models.image)}</strong></div></div>
       <div class="prompt-preview">${esc(shot.imagePrompt)}</div>
-      ${failed ? `<div class="job-error">${esc(job.errorMessage)}</div>` : ""}
+      ${failed ? `<div class="job-error">${esc(imageFailureCopy(job))}</div>` : ""}
       <div class="button-row">
         <button class="btn small ghost" data-action="edit-shot" data-shot="${shot.id}">Edit prompt</button>
-        <button class="btn small" data-action="regenerate-image" data-shot="${shot.id}" ${busy ? "disabled" : ""}>Regenerate image</button>
+        <button class="btn small" data-action="regenerate-image" data-shot="${shot.id}" ${busy ? "disabled" : ""}>${retryLabel}</button>
         <button class="btn small primary" data-action="approve-image" data-shot="${shot.id}" ${!image || busy || shot.imageApproved ? "disabled" : ""}>${shot.imageApproved ? "Approved" : "Approve image"}</button>
       </div>
     </div>
@@ -550,7 +575,7 @@ async function handleAction(event) {
     const confirmation = await paidBody(`Regenerate ${button.dataset.shot} keyframe?`);
     await api(`/api/shots/${button.dataset.shot}/image/regenerate?project_id=${projectId}`, { method: "POST", body: JSON.stringify(confirmation) });
     await refreshProject(true);
-    notify("Image regeneration queued as an explicit creative retry.");
+    notify("Image retry queued. Paid image calls run one at a time.");
   });
   if (action === "approve-image") return runAction(button, async () => {
     state.project = await api(`/api/shots/${button.dataset.shot}/image/approve?project_id=${projectId}`, { method: "POST", body: "{}" });
