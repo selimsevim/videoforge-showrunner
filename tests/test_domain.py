@@ -93,12 +93,15 @@ def test_prop_bible_is_withheld_when_first_frame_has_no_prop() -> None:
     assert "VISIBLE_PROP_CONSTRAINT:" in visible_prompt
 
 
-def test_motion_prompt_is_one_action_with_explicit_state_handoff() -> None:
+def test_motion_prompt_is_one_action_with_first_frame_lighting_lock() -> None:
     production = plan()
     first, second = production.shots[:2]
     assert f"ACTION: {first.subject_action}" in first.motion_prompt
     assert first.motion_prompt.count(first.subject_action) == 1
-    assert "No additional gestures" in first.motion_prompt
+    assert "LIGHTING LOCK:" in first.motion_prompt
+    assert "first-frame on/off state" in first.motion_prompt
+    assert "START:" not in first.motion_prompt
+    assert "END:" not in first.motion_prompt
     assert first.end_state == second.start_state
     assert practical_motion_issues(production) == []
     assert first.start_state.startswith("BODY:")
@@ -569,6 +572,7 @@ def test_budget_estimate_and_limits() -> None:
 def test_state_machine_transitions() -> None:
     assert can_transition(ProductionStage.DRAFT, ProductionStage.PLANNING)
     assert can_transition(ProductionStage.STORYBOARD_REVIEW, ProductionStage.VIDEO_GENERATING)
+    assert can_transition(ProductionStage.COMPLETED, ProductionStage.VIDEO_GENERATING)
     assert not can_transition(ProductionStage.DRAFT, ProductionStage.COMPLETED)
     with pytest.raises(ValueError, match="invalid production transition"):
         require_transition(ProductionStage.DRAFT, ProductionStage.COMPLETED)

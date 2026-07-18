@@ -305,14 +305,14 @@ def should_use_set_plate_for_retry(
 def compile_motion_prompt(shot: ShotPlan) -> str:
     return " ".join(
         (
-            f"FRAMING: {shot.framing} of {shot.primary_subject}.",
-            f"START: {shot.start_state.rstrip('.')}.",
+            f"SHOT: {shot.framing} of {shot.primary_subject}.",
+            "LIGHTING LOCK: Keep every visible light source in its first-frame on/off "
+            "state. Keep brightness, exposure, and color temperature unchanged. No "
+            "relighting or flicker.",
             f"ACTION: {shot.subject_action.rstrip('.')}.",
-            f"END: {shot.end_state.rstrip('.')}.",
             f"CAMERA: {shot.camera_motion.rstrip('.')}.",
-            "Perform the action once. No additional gestures, prop movement, particles, "
-            "atmospheric effects, dialogue, or new objects.",
-            "Preserve facial identity, wardrobe, prop design, lighting, and room geometry.",
+            "Perform only this action once. Preserve facial identity, wardrobe, prop "
+            "design, lighting, and room geometry. No other movement or new objects.",
         )
     )
 

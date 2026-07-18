@@ -368,10 +368,10 @@ function renderStoryboard() {
   const report = currentReport("storyboard");
   return `
     <div class="page-intro"><div><span class="section-kicker">Storyboard review</span><h2>Freeze the visual world.</h2><p>Approve each keyframe before any animation spend. Regeneration is always a deliberate user action.</p></div><span class="status-pill ${allReady ? "approved" : ""}">${approved} / ${state.project.shots.length} approved</span></div>
-    ${isRecordedDemo() ? `<div class="demo-narrative"><span>RECORDED LIVE QWEN RUN</span><p>One room, one woman, one impossible shadow. The cut moves from geography to gaze, isolates the evidence, checks it in reflection, registers the realization, then ends on proof. These six winning Qwen frames, production prompts, local shot animatics, and assembled preview are ready for inspection—no provider call or queue is running.</p></div>` : ""}
+    ${isRecordedDemo() ? `<div class="demo-narrative"><span>RECORDED LIVE QWEN + WAN RUN</span><p>One room, one woman, one impossible shadow. Shot 02 is a matching close-up derived from Shot 01's accepted ending frame, so pose, lighting, and set geometry carry through the cut. Five Qwen frames, that deterministic handoff crop, and six paid Wan outputs are ready for inspection—no provider call or queue is currently running.</p></div>` : ""}
     ${renderConsistency(report)}
     <div class="storyboard-grid">${state.project.shots.map(storyboardCard).join("")}</div>
-    <div class="checkpoint"><div><h3>${isRecordedDemo() ? "Recorded production ready" : "Human approval gate 02"}</h3><p>${isRecordedDemo() ? "The original Qwen frames are locked. Local editorial animatics preserve them for an instant, repeatable demo." : allReady ? "All keyframes are locked. Wan will animate these exact first frames." : `Review identity, wardrobe, prop, lighting, and room geometry in all ${state.project.shots.length} frames.`}</p></div><div class="button-group">${isRecordedDemo() ? `<button class="btn primary" data-action="go-view" data-view="production">View six shot clips →</button>` : `<button class="btn" data-action="check-consistency" ${state.project.shots.some((shot) => !asset(shot, "image")) ? "disabled" : ""}>Run consistency check</button><button class="btn primary" data-action="generate-videos" ${allReady ? "" : "disabled"}>Generate Videos · ${state.project.shots.length} × ${state.project.shots[0]?.durationSeconds || 5}s clips →</button>`}</div></div>`;
+    <div class="checkpoint"><div><h3>${isRecordedDemo() ? "Recorded production ready" : "Human approval gate 02"}</h3><p>${isRecordedDemo() ? "The approved first frames are locked; Shot 02 uses Shot 01's ending frame as its continuity handoff." : allReady ? "All keyframes are locked. Wan will animate these exact first frames." : `Review identity, wardrobe, prop, lighting, and room geometry in all ${state.project.shots.length} frames.`}</p></div><div class="button-group">${isRecordedDemo() ? `<button class="btn primary" data-action="go-view" data-view="production">View six Wan clips →</button>` : `<button class="btn" data-action="check-consistency" ${state.project.shots.some((shot) => !asset(shot, "image")) ? "disabled" : ""}>Run consistency check</button><button class="btn primary" data-action="generate-videos" ${allReady ? "" : "disabled"}>Generate Videos · ${state.project.shots.length} × ${state.project.shots[0]?.durationSeconds || 5}s clips →</button>`}</div></div>`;
 }
 
 function jobProgress(job) {
@@ -404,7 +404,7 @@ function renderProduction() {
   const videos = state.project.shots.filter((shot) => asset(shot, "video")).length;
   const complete = videos === state.project.shots.length;
   return `
-    <div class="page-intro"><div><span class="section-kicker">${isRecordedDemo() ? "Editorial animatic" : "Wan production"}</span><h2>${isRecordedDemo() ? "Six shots. One continuous idea." : "Animate only what was approved."}</h2><p>${isRecordedDemo() ? "These local five-second animatics use the real Qwen keyframes with a restrained editorial push-in. They demonstrate shot order and pacing; no Wan motion call is represented." : "Each task persists independently. A failed shot can be retried without touching the successful keyframes or clips."}</p></div><span class="status-pill ${complete ? "completed" : "generating"}">${videos} / ${state.project.shots.length} complete</span></div>
+    <div class="page-intro"><div><span class="section-kicker">Wan production</span><h2>${isRecordedDemo() ? "Six real motions. One continuous idea." : "Animate only what was approved."}</h2><p>${isRecordedDemo() ? "Each five-second clip is a paid Wan 2.7 image-to-video output generated from the exact approved Qwen frame and its matching physical motion prompt." : "Each task persists independently. A failed shot can be retried without touching the successful keyframes or clips."}</p></div><span class="status-pill ${complete ? "completed" : "generating"}">${videos} / ${state.project.shots.length} complete</span></div>
     <div class="production-grid">${state.project.shots.map(productionCard).join("")}</div>
     <div class="checkpoint"><div><h3>Individual shots remain canonical</h3><p>${complete ? "All clips passed technical verification. The assembled preview never hides the individual outputs." : "Generation continues in the background and survives browser refresh."}</p></div>${isRecordedDemo() ? `<button class="btn primary" data-action="go-view" data-view="final">View assembled preview →</button>` : `<button class="btn primary" data-action="assemble" ${complete ? "" : "disabled"}>Assemble Final Preview →</button>`}</div>`;
 }
@@ -451,13 +451,13 @@ function renderFinal() {
       : `<div class="empty-state"><div><h3>Final assembly not available</h3><p>Individual shots remain accessible. Assemble when all clips are complete.</p>${videos.length === state.project.shots.length ? `<button class="btn primary" data-action="assemble">Assemble with FFmpeg</button>` : ""}</div></div>`
     : `<div class="individual-strip">${videos.map((video, i) => `<video controls preload="metadata" src="${esc(video.localUrl)}" aria-label="Shot ${i + 1}"></video>`).join("")}</div>`;
   return `
-    <div class="page-intro"><div><span class="section-kicker">Final cut</span><h2>${esc(state.project.title)}</h2><p>${isRecordedDemo() ? "A 30-second local editorial animatic assembled from the six real Qwen keyframes. It demonstrates the complete narrative and cut without claiming generated character motion." : "A deliberately simple editorial preview. Original shots are preserved regardless of assembly status."}</p></div>${jobPill(latestJob("assembly"))}</div>
+    <div class="page-intro"><div><span class="section-kicker">Final cut</span><h2>${esc(state.project.title)}</h2><p>${isRecordedDemo() ? "A 30-second final cut assembled from six paid Wan 2.7 image-to-video shots. The approved first frames and individual generated clips remain available beside the cut." : "A deliberately simple editorial preview. Original shots are preserved regardless of assembly status."}</p></div>${jobPill(latestJob("assembly"))}</div>
     <div class="view-toggle"><button class="${state.finalMode === "final" ? "active" : ""}" data-action="final-mode" data-mode="final">Assembled preview</button><button class="${state.finalMode === "individual" ? "active" : ""}" data-action="final-mode" data-mode="individual">Individual shots</button></div>
     <div class="final-layout">
       <div>${player}${generationLedger()}</div>
       <aside class="panel"><div class="panel-header"><div><h3>Production report</h3><p>Inspectable generation record</p></div></div><div class="panel-body">
         <div class="summary-list">
-          <div class="summary-row"><span>Models</span><strong>${isRecordedDemo() ? "Qwen Image 2.0 / Pro<br />Local editorial animatic" : `${esc(state.config.models.image)}<br />${esc(state.config.models.video)}`}</strong></div>
+          <div class="summary-row"><span>Models</span><strong>${isRecordedDemo() ? "Qwen Image / continuity crop<br />Wan 2.7 I2V" : `${esc(state.config.models.image)}<br />${esc(state.config.models.video)}`}</strong></div>
           <div class="summary-row"><span>Provider</span><strong>${esc(state.project.provider.toUpperCase())}</strong></div>
           <div class="summary-row"><span>Shots completed</span><strong>${videos.length} / ${state.project.shots.length}</strong></div>
           <div class="summary-row"><span>Estimated budget</span><strong>${formatCny(state.project.budget?.estimatedCostCny)}</strong></div>
@@ -568,7 +568,7 @@ async function handleAction(event) {
     state.project = await api("/api/recorded-demo", { method: "POST", body: "{}" });
     localStorage.setItem("videoforge-project", state.project.id);
     state.view = "storyboard";
-    notify("Complete recorded Qwen demo opened. No paid calls were made.");
+    notify("Recorded Qwen + Wan production opened. No new paid calls were made.");
     render();
   });
   if (action === "save-plan") return runAction(button, savePlan);

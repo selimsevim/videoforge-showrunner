@@ -131,7 +131,7 @@ npm run smoke:mock
 
 ## Demo
 
-For an instant presentation, click **Open recorded Qwen demo** on the Concept screen. It loads the six winning frames, visual bible, shot plan, prompts, seeds, retries, six local editorial shot animatics, and a 30-second assembled preview. The images are saved outputs from a completed live Qwen Cloud rehearsal; the clearly labeled animatics add pacing without claiming Wan-generated character motion. The route makes no provider call and opens at Storyboard Review with every stage available.
+For an instant presentation, click **Open recorded Qwen demo** on the Concept screen. It loads five winning Qwen frames, one deterministic matching-cut crop derived from Shot 01's accepted ending frame, the visual bible, shot plan, prompts, seeds, retries, six paid Wan 2.7 image-to-video outputs, and their 30-second assembled preview. Replaying the recorded route itself makes no new provider call and opens at Storyboard Review with every stage available.
 
 > A woman enters her room in the dark and sees a shadow moving independently.
 

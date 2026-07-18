@@ -1,9 +1,9 @@
 # Recording-ready demo narrative
 
-This route uses the six winning images from a completed live Qwen Cloud rehearsal. It
-adds clearly labeled local editorial animatics for the six shots and final cut, loads
-locally, makes no provider call, and spends no credits. Keep the server in normal Qwen
-mode so the separate live production path remains real.
+This route uses five winning Qwen images, one matching-cut crop derived from Shot 01's
+accepted ending frame, and six paid Wan 2.7 image-to-video clips from a completed live
+Qwen Cloud rehearsal. The saved outputs load locally, so replaying the recorded route
+makes no new provider call and spends no additional credits.
 
 ## Before recording
 
@@ -66,10 +66,10 @@ composition and physical beat change.”
 
 ## 1:55–2:35 — Production and final cut
 
-Return to **Storyboard**, then click **View six shot clips**. Play one or two five-second
-clips to show the shot order and pacing, then click **View assembled preview** and play
-the 30-second cut. The page labels these as local editorial animatics: the visuals are
-the real Qwen keyframes with a restrained push-in, not claimed Wan character motion.
+Return to **Storyboard**, then click **View six Wan clips**. Play one or two five-second
+clips to show the physical subject and shadow motion, then click **View assembled
+preview** and play the 30-second cut. Each paid Wan clip starts from its matching approved
+Qwen frame and uses the motion prompt shown beneath it.
 
 “Opening this rehearsal made zero calls. In a new production, storyboard and video calls
 start only after explicit confirmation. Jobs run independently, are persisted in SQLite,
@@ -86,7 +86,7 @@ human checkpoint. It is a film workflow—not six unrelated generations.”
 
 ## Live fallback
 
-If the network is slow, remain in the recorded rehearsal. Its six keyframes are the exact
-saved output of the live run; its clips are local editorial animatics, not mock Qwen API
-responses. If you demonstrate live generation, create a separate project so the
-recording-ready rehearsal stays unchanged.
+If the network is slow, remain in the recorded rehearsal. Its approved keyframes and six
+Wan clips are exact saved production assets, not mock API responses. If you
+demonstrate live generation, create a separate project so the recording-ready rehearsal
+stays unchanged.

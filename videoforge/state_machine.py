@@ -51,7 +51,13 @@ ALLOWED_TRANSITIONS: dict[ProductionStage, set[ProductionStage]] = {
         ProductionStage.CANCELLED,
     },
     ProductionStage.FAILED: {ProductionStage.PLANNING, ProductionStage.CANCELLED},
-    ProductionStage.COMPLETED: {ProductionStage.ASSEMBLING},
+    # A completed cut may be reopened for a deliberate paid video pass while its
+    # approved keyframes remain locked. This also makes the existing completed-shot
+    # retry endpoint usable after final assembly.
+    ProductionStage.COMPLETED: {
+        ProductionStage.VIDEO_GENERATING,
+        ProductionStage.ASSEMBLING,
+    },
     ProductionStage.CANCELLED: set(),
 }
 
@@ -65,4 +71,3 @@ def can_transition(current: ProductionStage | str, target: ProductionStage | str
 def require_transition(current: ProductionStage | str, target: ProductionStage | str) -> None:
     if not can_transition(current, target):
         raise ValueError(f"invalid production transition: {current} -> {target}")
-

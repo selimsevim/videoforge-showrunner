@@ -11,7 +11,7 @@ RECORDED_DEMO_PROMPT = (
 )
 RECORDED_DEMO_TITLE = "The Shadow — recorded Qwen rehearsal"
 RECORDED_FINAL_FILENAME = "final-cut.mp4"
-RECORDED_ANIMATIC_MODEL = "editorial-animatic"
+RECORDED_VIDEO_MODEL = "wan2.7-i2v"
 
 
 @dataclass(frozen=True)
@@ -19,10 +19,14 @@ class RecordedFrame:
     shot_id: str
     filename: str
     video_filename: str
+    video_task_id: str
+    video_request_id: str
+    video_retry_count: int
     model: str
     seed: int
     retry_count: int
     prompt_hash: str
+    continuity_source_shot_id: str | None = None
 
 
 RECORDED_FRAMES = (
@@ -30,6 +34,9 @@ RECORDED_FRAMES = (
         "shot-01",
         "shot-01.png",
         "shot-01.mp4",
+        "070d9b1c-43b6-4d32-b801-4c0d553500ac",
+        "e916f180-7e46-9500-a1aa-22bf49e134ea",
+        3,
         "qwen-image-2.0",
         1777431065,
         0,
@@ -39,15 +46,22 @@ RECORDED_FRAMES = (
         "shot-02",
         "shot-02.png",
         "shot-02.mp4",
-        "qwen-image-2.0-pro",
-        1777535794,
+        "589b8fbf-f973-44ad-9e81-1ef1f6ca9093",
+        "c5491aa3-ffe8-96a2-8186-433cee2650ba",
         1,
-        "bc083a02858be2bac2da78cb73b0b3d9fd6b8e0b81d89a7cbdac1e56205e14ee",
+        "continuity-crop",
+        1777431065,
+        0,
+        "5e0f43a2c00b4c2edcc7fd763fef83117c1f6351cf4e3d15f963870900a32429",
+        continuity_source_shot_id="shot-01",
     ),
     RecordedFrame(
         "shot-03",
         "shot-03.png",
         "shot-03.mp4",
+        "5eeebbed-116b-447e-8a78-0a3525728280",
+        "7ee9b5f0-d7ed-9a65-af6b-032d87479c3b",
+        0,
         "qwen-image-2.0-pro",
         1777954710,
         5,
@@ -57,6 +71,9 @@ RECORDED_FRAMES = (
         "shot-04",
         "shot-04.png",
         "shot-04.mp4",
+        "adad9446-f718-4aaf-9de3-2cfe78c73afc",
+        "ec45bc57-157a-9aac-be32-c6a7b9d2e564",
+        0,
         "qwen-image-2.0-pro",
         1777954710,
         5,
@@ -66,6 +83,9 @@ RECORDED_FRAMES = (
         "shot-05",
         "shot-05.png",
         "shot-05.mp4",
+        "25fb7b9e-8a85-4ce2-a9f3-846762149bca",
+        "ced4ed59-028b-998f-a480-545488fde52a",
+        0,
         "qwen-image-2.0-pro",
         1777535794,
         1,
@@ -75,6 +95,9 @@ RECORDED_FRAMES = (
         "shot-06",
         "shot-06.png",
         "shot-06.mp4",
+        "d626b2fc-e1d7-4c29-90af-820c882ab791",
+        "d6294f54-67ce-911e-9363-be3ee0349f1c",
+        0,
         "qwen-image-2.0-pro",
         1777535794,
         1,
@@ -120,7 +143,8 @@ def create_recorded_demo_plan(project_id: str) -> ProductionPlan:
         ),
     )
     still = (
-        "BODY: standing just inside doorway, facing room center, weight on left foot | "
+        "BODY: standing just inside doorway, torso facing room center, head turned "
+        "slightly left toward television, weight on left foot | "
         "HANDS: right hand withdrawn, fingers slightly curled, left hand still at side | "
         "PROP: none"
     )
@@ -138,13 +162,13 @@ def create_recorded_demo_plan(project_id: str) -> ProductionPlan:
             framing="Wide master shot",
             angle="Eye-level, slightly high to include the door frame",
             position="standing just inside doorway, facing room center, weight on left foot",
-            target="Elena entering her bedroom",
+            target="Elena standing in the bedroom",
             reason="Establishes the door, bed, dresser, TV, and the room's fixed geography.",
             start=(
                 "BODY: standing just inside doorway, facing room center, weight on left foot | "
                 "HANDS: relaxed at sides, palms inward | PROP: none"
             ),
-            action="She reaches forward and flicks the wall switch up with her right index finger.",
+            action="She slowly looks to her left and stops.",
             end=still,
             environment=(
                 "Room fully dark except for a narrow band of cool blue light across the "
@@ -159,23 +183,26 @@ def create_recorded_demo_plan(project_id: str) -> ProductionPlan:
         ),
         dict(
             purpose="Discover — her attention shifts",
-            framing="Medium shot, eye-level",
-            angle="Slightly angled right to show the wall behind her left shoulder",
-            position="standing just inside doorway, facing room center, weight on left foot",
-            target="Elena turning her head toward the far wall",
-            reason="Keeps her face and eyeline readable while preserving the wall as her target.",
+            framing="Medium close-up",
+            angle="Same camera axis as shot-01; matching crop from the wide ending",
+            position="head and shoulders in the same turned position established in shot-01",
+            target="Elena holding her turned gaze toward the television",
+            reason=(
+                "Continues the head turn across a matching cut without regenerating "
+                "the actor or set."
+            ),
             start=still,
-            action="She turns her head sharply left and fixes her eyes on the far wall.",
+            action="She holds the head turn and blinks once; her body stays still.",
             end=still,
             environment=(
-                "The same room and lighting; a tall human-shaped shadow stretches up the "
-                "wall beside the TV."
+                "The exact shot-01 room, camera axis, and cool lighting; only the tighter "
+                "crop changes."
             ),
             delta=(
-                "Medium shot: Elena in profile, eyes fixed on the far wall where a tall "
-                "shadow falls beside the black TV."
+                "Matching medium close-up cropped from shot-01's ending frame: Elena's "
+                "head and shoulders hold the same position and lighting."
             ),
-            seed=1777535794,
+            seed=1777431065,
             video_seed=3857,
         ),
         dict(
@@ -186,7 +213,7 @@ def create_recorded_demo_plan(project_id: str) -> ProductionPlan:
             target="The raised-hand shadow on the wall",
             reason="Removes the actor and room overview so the autonomous shadow owns the frame.",
             start=still,
-            action="The shadow holds one hand raised while Elena remains off-screen.",
+            action="The raised shadow bends two fingers once.",
             end=still,
             environment=(
                 "Only the wall texture and the elongated raised-hand shadow are visible."
@@ -206,7 +233,7 @@ def create_recorded_demo_plan(project_id: str) -> ProductionPlan:
             target="Elena's reflection in the cracked black TV screen",
             reason="Juxtaposes her lowered hands with the raised shadow inside one eyeline.",
             start=still,
-            action="She takes one small step forward and lowers her chin toward the reflection.",
+            action="She lowers her chin slightly toward her reflection and stops.",
             end=forward,
             environment=(
                 "The cracked TV glass acts as a dark mirror; Elena's faint reflection keeps "
@@ -227,7 +254,7 @@ def create_recorded_demo_plan(project_id: str) -> ProductionPlan:
             target="Elena's face registering the realization",
             reason="Pauses the visual investigation for one clean, readable emotional beat.",
             start=forward,
-            action="She presses her lips together and lowers her eyes without blinking.",
+            action="She lowers her eyes and holds still.",
             end=downcast,
             environment="The bedroom falls fully out of focus behind her.",
             delta=(
@@ -245,7 +272,7 @@ def create_recorded_demo_plan(project_id: str) -> ProductionPlan:
             target="The cracked TV reflection with a raised shadow hand",
             reason="Ends on physical evidence: her hands are down, but the reflected shadow is raised.",
             start=downcast,
-            action="Elena remains still as the raised shadow hand holds in the reflection.",
+            action="The raised shadow hand slowly closes into a fist.",
             end=downcast,
             environment="Only cracked black TV glass and the layered reflection are visible.",
             delta=(

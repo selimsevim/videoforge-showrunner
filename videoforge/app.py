@@ -34,11 +34,11 @@ from .providers import (
     ShowrunnerProvider,
 )
 from .recorded_demo import (
-    RECORDED_ANIMATIC_MODEL,
     RECORDED_DEMO_PROMPT,
     RECORDED_DEMO_TITLE,
     RECORDED_FINAL_FILENAME,
     RECORDED_FRAMES,
+    RECORDED_VIDEO_MODEL,
     create_recorded_demo_plan,
 )
 from .retry import attempt_seed
@@ -268,6 +268,20 @@ def create_app(
         project_id = project["id"]
         plan = create_recorded_demo_plan(project_id)
         budget = estimate_budget(plan, settings)
+        continuity_crops = sum(
+            frame.continuity_source_shot_id is not None for frame in RECORDED_FRAMES
+        )
+        if continuity_crops:
+            budget = budget.model_copy(
+                update={
+                    "image_calls": budget.image_calls - continuity_crops,
+                    "estimated_cost_cny": round(
+                        budget.estimated_cost_cny
+                        - continuity_crops * settings.image_cost_cny,
+                        6,
+                    ),
+                }
+            )
         database.save_plan(plan, budget.model_dump(by_alias=True))
         database.approve_plan(project_id)
 
@@ -286,23 +300,30 @@ def create_app(
             image_url = f"/assets/{project_id}/images/{frame.filename}"
             shot = shot_by_id[frame.shot_id]
             compiled_prompt_hash = prompt_hash(shot.image_prompt)
+            is_continuity_crop = frame.continuity_source_shot_id is not None
+            image_source_label = (
+                "continuity-handoff-crop"
+                if is_continuity_crop
+                else "live-qwen-run-2026-07-17"
+            )
             image_job_id = database.create_job(
                 project_id=project_id,
                 shot_id=frame.shot_id,
                 kind="image",
-                provider="qwen",
+                provider="local" if is_continuity_crop else "qwen",
                 model=frame.model,
                 payload={
                     "recordedRehearsal": True,
-                    "source": "live-qwen-run-2026-07-17",
+                    "source": image_source_label,
                     "recordedProviderPromptHash": frame.prompt_hash,
+                    "continuitySourceShotId": frame.continuity_source_shot_id,
                 },
                 prompt=shot.image_prompt,
                 prompt_hash=compiled_prompt_hash,
                 negative_prompt=plan.visual_bible.negative_prompt,
                 seed=frame.seed,
                 parameters={"size": "1920*1080", "recorded": True},
-                estimated_cost=settings.image_cost_cny,
+                estimated_cost=None if is_continuity_crop else settings.image_cost_cny,
                 retry_count=frame.retry_count,
             )
             database.update_job(
@@ -311,7 +332,10 @@ def create_app(
                 started_at=completed_at,
                 completed_at=completed_at,
                 output_url=image_url,
-                usage_json={"source": "recorded-live-qwen-rehearsal"},
+                usage_json={
+                    "source": image_source_label,
+                    "paidCalls": 0 if is_continuity_crop else 1,
+                },
             )
             database.create_asset(
                 project_id=project_id,
@@ -322,11 +346,17 @@ def create_app(
                 prompt_hash=frame.prompt_hash,
                 sha256=hashlib.sha256(image_output.read_bytes()).hexdigest(),
                 metadata={
-                    "source": "recorded-live-qwen-rehearsal",
+                    "source": image_source_label,
                     "model": frame.model,
                     "seed": frame.seed,
                     "winningRetry": frame.retry_count,
                     "recordedProviderPromptHash": frame.prompt_hash,
+                    "derivedFromShotId": frame.continuity_source_shot_id,
+                    "derivedFromFrame": (
+                        "accepted ending frame at 4.8 seconds"
+                        if is_continuity_crop
+                        else None
+                    ),
                 },
             )
             database.approve_image(project_id, frame.shot_id)
@@ -341,12 +371,13 @@ def create_app(
                 project_id=project_id,
                 shot_id=frame.shot_id,
                 kind="video",
-                provider="local",
-                model=RECORDED_ANIMATIC_MODEL,
+                provider="qwen",
+                model=RECORDED_VIDEO_MODEL,
                 payload={
                     "recordedRehearsal": True,
-                    "source": "local-editorial-animatic",
+                    "source": "live-wan-run-2026-07-18",
                     "basedOnLiveQwenKeyframe": True,
+                    "recordedTaskId": frame.video_task_id,
                 },
                 prompt=shot.motion_prompt,
                 prompt_hash=video_prompt_hash,
@@ -355,17 +386,30 @@ def create_app(
                 parameters={
                     "durationSeconds": shot.duration_seconds,
                     "resolution": "720P",
-                    "motion": "subtle 2.5% editorial push-in",
+                    "prompt_extend": False,
                     "recorded": True,
                 },
+                estimated_cost=(
+                    shot.duration_seconds
+                    * settings.video_cost_cny_per_second_720p
+                ),
+                retry_count=frame.video_retry_count,
             )
             database.update_job(
                 video_job_id,
                 status=JobStatus.COMPLETED,
+                request_id=frame.video_request_id,
+                remote_task_id=frame.video_task_id,
                 started_at=completed_at,
                 completed_at=completed_at,
                 output_url=video_url,
-                usage_json={"source": "local-editorial-animatic", "paidCalls": 0},
+                usage_json={
+                    "source": "recorded-live-wan-run",
+                    "video_count": 1,
+                    "duration": shot.duration_seconds,
+                    "SR": 720,
+                    "output_video_duration": shot.duration_seconds,
+                },
             )
             database.create_asset(
                 project_id=project_id,
@@ -376,10 +420,12 @@ def create_app(
                 prompt_hash=video_prompt_hash,
                 sha256=hashlib.sha256(video_output.read_bytes()).hexdigest(),
                 metadata={
-                    "source": "local-editorial-animatic",
-                    "model": RECORDED_ANIMATIC_MODEL,
-                    "editorialOnly": True,
+                    "source": "recorded-live-wan-run-2026-07-18",
+                    "model": RECORDED_VIDEO_MODEL,
+                    "actualProviderGeneration": True,
                     "basedOnLiveQwenKeyframe": True,
+                    "requestId": frame.video_request_id,
+                    "taskId": frame.video_task_id,
                     "technical": technical,
                 },
             )
@@ -388,7 +434,7 @@ def create_app(
         shutil.copy2(final_source, final_output)
         final_url = f"/assets/{project_id}/final/{RECORDED_FINAL_FILENAME}"
         assembly_prompt = (
-            "Concatenate the six five-second editorial animatic clips in shot order."
+            "Concatenate the six five-second paid Wan clips in shot order."
         )
         assembly_job_id = database.create_job(
             project_id=project_id,
@@ -398,7 +444,7 @@ def create_app(
             model="ffmpeg",
             payload={
                 "recordedRehearsal": True,
-                "source": "local-editorial-animatic",
+                "source": "local-ffmpeg-assembly-of-recorded-wan-clips",
                 "clipCount": len(RECORDED_FRAMES),
             },
             prompt=assembly_prompt,
@@ -422,9 +468,9 @@ def create_app(
             prompt_hash=prompt_hash(assembly_prompt),
             sha256=hashlib.sha256(final_output.read_bytes()).hexdigest(),
             metadata={
-                "source": "local-editorial-animatic",
+                "source": "recorded-live-wan-final-cut-2026-07-18",
                 "model": "ffmpeg",
-                "editorialOnly": True,
+                "actualProviderClips": True,
                 "clipCount": len(RECORDED_FRAMES),
                 "probe": probe_media(final_output, settings.ffprobe_binary),
             },

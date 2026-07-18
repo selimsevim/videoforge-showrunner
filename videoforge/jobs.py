@@ -25,6 +25,14 @@ from .schemas import (
 )
 
 
+FATAL_ACCOUNT_ERROR_CODES = {
+    "ALLOCATION_QUOTA_FREE_TIER_ONLY",
+    "INVALID_API_KEY",
+    "UNAUTHORIZED",
+    "FORBIDDEN",
+}
+
+
 class JobRunner:
     def __init__(
         self, database: Database, provider: ShowrunnerProvider, settings: Settings
@@ -181,11 +189,24 @@ class JobRunner:
     def _run(self, job_id: str) -> None:
         try:
             job = self.database.get_job(job_id)
+            if job["status"] == JobStatus.CANCELLED:
+                return
             if job["kind"] == "image":
                 self._image(job)
             elif job["kind"] == "video":
                 with self.video_slots:
-                    self._video(job)
+                    # A sibling may have discovered a fatal account/billing error while
+                    # this worker waited for the provider slot.
+                    job = self.database.get_job(job_id)
+                    if job["status"] == JobStatus.CANCELLED:
+                        return
+                    try:
+                        self._video(job)
+                    except Exception as exc:
+                        self._fail(job_id, exc)
+                        if getattr(exc, "code", "") in FATAL_ACCOUNT_ERROR_CODES:
+                            self._cancel_queued_siblings(job, exc)
+                        return
             elif job["kind"] == "assembly":
                 self._assembly(job)
             else:
@@ -200,6 +221,24 @@ class JobRunner:
                 with self._lock:
                     self._active.discard(job_id)
                     self._futures.pop(job_id, None)
+
+    def _cancel_queued_siblings(self, failed_job: dict[str, Any], exc: Exception) -> None:
+        code = getattr(exc, "code", type(exc).__name__.upper())
+        for sibling in self.database.jobs_for_project(
+            failed_job["projectId"], failed_job["kind"]
+        ):
+            if sibling["id"] == failed_job["id"] or sibling["status"] != JobStatus.QUEUED:
+                continue
+            self.database.update_job(
+                sibling["id"],
+                status=JobStatus.CANCELLED,
+                error_code=code,
+                error_message=(
+                    "Cancelled before submission because another shot exposed the same "
+                    f"account-level provider block: {exc}"
+                ),
+                completed_at=utc_now(),
+            )
 
     def _image(self, job: dict[str, Any]) -> None:
         request = ProviderImageRequest.model_validate(job["payload"])

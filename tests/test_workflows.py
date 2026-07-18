@@ -92,6 +92,53 @@ def test_partial_video_failure_and_independent_retry(tmp_path: Path) -> None:
         assert any(asset["kind"] == "video" for asset in shot["assets"])
 
 
+def test_fatal_paid_account_error_cancels_unsubmitted_video_jobs(tmp_path: Path) -> None:
+    class BillingBlockedProvider(MockShowrunnerProvider):
+        name = "qwen"
+
+        def __init__(self, settings):
+            super().__init__(settings)
+            self.video_calls = 0
+
+        def generate_video(self, request):
+            self.video_calls += 1
+            raise ProviderError(
+                "Free-tier-only mode blocks paid inference.",
+                code="ALLOCATION_QUOTA_FREE_TIER_ONLY",
+            )
+
+    settings = Settings(
+        database_path=tmp_path / "db.sqlite",
+        asset_root=tmp_path / "assets",
+        demo_asset_root=ROOT / "public" / "demo-assets",
+        provider="qwen",
+        mock_delay_seconds=0,
+        poll_interval_seconds=0,
+        max_concurrent_video_tasks=1,
+    )
+    provider = BillingBlockedProvider(settings)
+    app = create_app(settings, provider)
+    with TestClient(app) as client:
+        project = client.post("/api/recorded-demo", json={}).json()
+        response = client.post(
+            f"/api/projects/{project['id']}/videos",
+            json={"confirmPaidCalls": True},
+        )
+        assert response.status_code == 202
+        project = wait(app, project["id"])
+        video_jobs = [
+            job
+            for job in project["jobs"]
+            if job["kind"] == "video"
+            and not job["payload"].get("recordedRehearsal")
+        ]
+        assert provider.video_calls == 1
+        assert sum(job["status"] == "FAILED" for job in video_jobs) == 1
+        assert all(
+            job["status"] in {"FAILED", "CANCELLED"} for job in video_jobs
+        )
+
+
 def test_assembly_failure_preserves_individual_videos(tmp_path: Path) -> None:
     settings = Settings(
         database_path=tmp_path / "db.sqlite",
@@ -148,6 +195,9 @@ def test_recorded_demo_is_instant_and_never_calls_paid_provider(tmp_path: Path) 
         def generate_image(self, request, output_path):
             raise AssertionError("recorded demo must not call the image provider")
 
+        def generate_video(self, request):
+            raise AssertionError("recorded demo must not call the video provider")
+
     settings = Settings(
         database_path=tmp_path / "db.sqlite",
         asset_root=tmp_path / "assets",
@@ -175,8 +225,17 @@ def test_recorded_demo_is_instant_and_never_calls_paid_provider(tmp_path: Path) 
         assert len(image_jobs) == 6
         assert len(video_jobs) == 6
         assert len(assembly_jobs) == 1
-        assert all(job["provider"] == "local" for job in video_jobs + assembly_jobs)
-        assert all(job["estimatedCost"] is None for job in video_jobs + assembly_jobs)
+        assert project["budget"]["imageCalls"] == 5
+        handoff_job = next(job for job in image_jobs if job["shotId"] == "shot-02")
+        assert handoff_job["provider"] == "local"
+        assert handoff_job["model"] == "continuity-crop"
+        assert handoff_job["estimatedCost"] is None
+        assert handoff_job["payload"]["continuitySourceShotId"] == "shot-01"
+        assert all(job["provider"] == "qwen" for job in video_jobs)
+        assert all(job["model"] == "wan2.7-i2v" for job in video_jobs)
+        assert all(job["estimatedCost"] is not None for job in video_jobs)
+        assert assembly_jobs[0]["provider"] == "local"
+        assert assembly_jobs[0]["estimatedCost"] is None
         assert all(
             job["payload"]["recordedProviderPromptHash"]
             == next(
@@ -201,7 +260,22 @@ def test_recorded_demo_is_instant_and_never_calls_paid_provider(tmp_path: Path) 
         )
         assert len(project["finalAssets"]) == 1
         assert Path(project["finalAssets"][0]["localPath"]).is_file()
-        assert project["finalAssets"][0]["metadata"]["editorialOnly"] is True
+        assert project["finalAssets"][0]["metadata"]["actualProviderClips"] is True
+        handoff_asset = next(
+            asset
+            for shot in project["shots"]
+            if shot["id"] == "shot-02"
+            for asset in shot["assets"]
+            if asset["kind"] == "image"
+        )
+        assert handoff_asset["metadata"]["derivedFromShotId"] == "shot-01"
+        assert all(
+            next(
+                asset for asset in shot["assets"] if asset["kind"] == "video"
+            )["metadata"]["actualProviderGeneration"]
+            is True
+            for shot in project["shots"]
+        )
 
         reopened = client.post("/api/recorded-demo", json={})
         assert reopened.status_code == 201
@@ -212,7 +286,7 @@ def test_recorded_demo_is_instant_and_never_calls_paid_provider(tmp_path: Path) 
         assert persisted["title"] == "The Shadow — recorded Qwen rehearsal"
         assert [shot["imageSeed"] for shot in persisted["shots"]] == [
             1777431065,
-            1777535794,
+            1777431065,
             1777954710,
             1777954710,
             1777535794,
