@@ -157,11 +157,11 @@ function renderConcept() {
         <div class="field-grid">
           <div class="field full">
             <label for="project-title">Project title <em>Working title</em></label>
-            <input id="project-title" name="title" value="The Third Exposure" maxlength="120" required />
+            <input id="project-title" name="title" value="The Shadow" maxlength="120" required />
           </div>
           <div class="field full">
             <label for="story-prompt">Main story prompt <em>One character · one location · one reveal</em></label>
-            <textarea id="story-prompt" name="storyPrompt" maxlength="2000" required>A woman finds a Polaroid photograph of herself sleeping in her bedroom, but she lives alone.</textarea>
+            <textarea id="story-prompt" name="storyPrompt" maxlength="2000" required>A woman enters her room in the dark and sees a shadow moving independently.</textarea>
             <div class="char-count">Planning is a non-media action</div>
           </div>
           <div class="field">
@@ -198,7 +198,7 @@ function renderConcept() {
         <h3>Lock the world before it moves.</h3>
         <p>Identity, set design, lighting, palette, and camera language are frozen in approved images. Wan receives only motion instructions.</p>
         <div class="pipeline">
-          <div class="pipeline-step"><strong>Narrative direction</strong><span>Three achievable dramatic beats</span></div>
+          <div class="pipeline-step"><strong>Narrative direction</strong><span>Six achievable dramatic beats</span></div>
           <div class="pipeline-step"><strong>Immutable visual bible</strong><span>One source of continuity truth</span></div>
           <div class="pipeline-step"><strong>Approved keyframes</strong><span>Human checkpoint before animation</span></div>
           <div class="pipeline-step"><strong>Restrained motion</strong><span>One action, one camera instruction</span></div>
