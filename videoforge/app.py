@@ -10,6 +10,7 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from .assembly import probe_media, verify_video
 from .budget import enforce_budget, estimate_budget
 from .cinematography import framing_family, repair_practical_motion
 from .config import Settings
@@ -33,7 +34,10 @@ from .providers import (
     ShowrunnerProvider,
 )
 from .recorded_demo import (
+    RECORDED_ANIMATIC_MODEL,
     RECORDED_DEMO_PROMPT,
+    RECORDED_DEMO_TITLE,
+    RECORDED_FINAL_FILENAME,
     RECORDED_FRAMES,
     create_recorded_demo_plan,
 )
@@ -195,23 +199,63 @@ def create_app(
 
     @app.post("/api/recorded-demo", status_code=201)
     def recorded_demo() -> dict[str, Any]:
-        """Open a snapshot of a completed live Qwen storyboard rehearsal.
+        """Open a complete, locally replayable snapshot of a live Qwen rehearsal.
 
         The endpoint performs local database and file operations only. It never invokes
         the active provider and cannot start a paid generation job.
         """
 
-        sources = {
+        image_sources = {
             frame.shot_id: settings.demo_asset_root / "shadow-rehearsal" / frame.filename
             for frame in RECORDED_FRAMES
         }
-        missing = [str(source) for source in sources.values() if not source.is_file()]
+        video_sources = {
+            frame.shot_id: (
+                settings.demo_asset_root
+                / "shadow-rehearsal"
+                / "videos"
+                / frame.video_filename
+            )
+            for frame in RECORDED_FRAMES
+        }
+        final_source = (
+            settings.demo_asset_root / "shadow-rehearsal" / RECORDED_FINAL_FILENAME
+        )
+        missing = [
+            str(source)
+            for source in (*image_sources.values(), *video_sources.values(), final_source)
+            if not source.is_file()
+        ]
         if missing:
-            raise FileNotFoundError(f"Recorded demo frames are missing: {', '.join(missing)}")
+            raise FileNotFoundError(f"Recorded demo media is missing: {', '.join(missing)}")
+
+        # The button is safe to use repeatedly during a presentation. Reopen the same
+        # complete local snapshot instead of filling the database with duplicate demos.
+        for candidate in database.list_projects():
+            candidate_assets = [
+                asset
+                for shot in candidate["shots"]
+                for asset in shot.get("assets", [])
+            ]
+            has_all_shot_media = all(
+                any(asset["kind"] == kind for asset in shot.get("assets", []))
+                for shot in candidate["shots"]
+                for kind in ("image", "video")
+            )
+            current_media = candidate_assets + candidate.get("finalAssets", [])
+            if (
+                candidate["title"] == RECORDED_DEMO_TITLE
+                and candidate["stage"] == ProductionStage.COMPLETED
+                and len(candidate["shots"]) == len(RECORDED_FRAMES)
+                and has_all_shot_media
+                and candidate.get("finalAssets")
+                and all(Path(asset["localPath"]).is_file() for asset in current_media)
+            ):
+                return candidate
 
         project = database.create_project(
             ProjectInput(
-                title="The Shadow — recorded Qwen rehearsal",
+                title=RECORDED_DEMO_TITLE,
                 storyPrompt=RECORDED_DEMO_PROMPT,
                 genre="Psychological horror",
                 visualStyle="Cinematic realism",
@@ -228,17 +272,21 @@ def create_app(
         database.approve_plan(project_id)
 
         shot_by_id = {shot.id: shot for shot in plan.shots}
-        output_dir = settings.asset_root / project_id / "images"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        image_output_dir = settings.asset_root / project_id / "images"
+        video_output_dir = settings.asset_root / project_id / "videos"
+        final_output_dir = settings.asset_root / project_id / "final"
+        image_output_dir.mkdir(parents=True, exist_ok=True)
+        video_output_dir.mkdir(parents=True, exist_ok=True)
+        final_output_dir.mkdir(parents=True, exist_ok=True)
         completed_at = utc_now()
         for frame in RECORDED_FRAMES:
-            source = sources[frame.shot_id]
-            output = output_dir / frame.filename
-            shutil.copy2(source, output)
-            local_url = f"/assets/{project_id}/images/{frame.filename}"
+            image_source = image_sources[frame.shot_id]
+            image_output = image_output_dir / frame.filename
+            shutil.copy2(image_source, image_output)
+            image_url = f"/assets/{project_id}/images/{frame.filename}"
             shot = shot_by_id[frame.shot_id]
             compiled_prompt_hash = prompt_hash(shot.image_prompt)
-            job_id = database.create_job(
+            image_job_id = database.create_job(
                 project_id=project_id,
                 shot_id=frame.shot_id,
                 kind="image",
@@ -258,21 +306,21 @@ def create_app(
                 retry_count=frame.retry_count,
             )
             database.update_job(
-                job_id,
+                image_job_id,
                 status=JobStatus.COMPLETED,
                 started_at=completed_at,
                 completed_at=completed_at,
-                output_url=local_url,
+                output_url=image_url,
                 usage_json={"source": "recorded-live-qwen-rehearsal"},
             )
             database.create_asset(
                 project_id=project_id,
                 shot_id=frame.shot_id,
                 kind="image",
-                local_path=str(output),
-                local_url=local_url,
+                local_path=str(image_output),
+                local_url=image_url,
                 prompt_hash=frame.prompt_hash,
-                sha256=hashlib.sha256(output.read_bytes()).hexdigest(),
+                sha256=hashlib.sha256(image_output.read_bytes()).hexdigest(),
                 metadata={
                     "source": "recorded-live-qwen-rehearsal",
                     "model": frame.model,
@@ -281,8 +329,108 @@ def create_app(
                     "recordedProviderPromptHash": frame.prompt_hash,
                 },
             )
+            database.approve_image(project_id, frame.shot_id)
 
-        database.set_stage(project_id, ProductionStage.STORYBOARD_REVIEW, force=True)
+            video_source = video_sources[frame.shot_id]
+            video_output = video_output_dir / frame.video_filename
+            shutil.copy2(video_source, video_output)
+            video_url = f"/assets/{project_id}/videos/{frame.video_filename}"
+            technical = verify_video(video_output, settings.ffprobe_binary)
+            video_prompt_hash = prompt_hash(shot.motion_prompt)
+            video_job_id = database.create_job(
+                project_id=project_id,
+                shot_id=frame.shot_id,
+                kind="video",
+                provider="local",
+                model=RECORDED_ANIMATIC_MODEL,
+                payload={
+                    "recordedRehearsal": True,
+                    "source": "local-editorial-animatic",
+                    "basedOnLiveQwenKeyframe": True,
+                },
+                prompt=shot.motion_prompt,
+                prompt_hash=video_prompt_hash,
+                negative_prompt=plan.visual_bible.negative_prompt,
+                seed=shot.video_seed,
+                parameters={
+                    "durationSeconds": shot.duration_seconds,
+                    "resolution": "720P",
+                    "motion": "subtle 2.5% editorial push-in",
+                    "recorded": True,
+                },
+            )
+            database.update_job(
+                video_job_id,
+                status=JobStatus.COMPLETED,
+                started_at=completed_at,
+                completed_at=completed_at,
+                output_url=video_url,
+                usage_json={"source": "local-editorial-animatic", "paidCalls": 0},
+            )
+            database.create_asset(
+                project_id=project_id,
+                shot_id=frame.shot_id,
+                kind="video",
+                local_path=str(video_output),
+                local_url=video_url,
+                prompt_hash=video_prompt_hash,
+                sha256=hashlib.sha256(video_output.read_bytes()).hexdigest(),
+                metadata={
+                    "source": "local-editorial-animatic",
+                    "model": RECORDED_ANIMATIC_MODEL,
+                    "editorialOnly": True,
+                    "basedOnLiveQwenKeyframe": True,
+                    "technical": technical,
+                },
+            )
+
+        final_output = final_output_dir / RECORDED_FINAL_FILENAME
+        shutil.copy2(final_source, final_output)
+        final_url = f"/assets/{project_id}/final/{RECORDED_FINAL_FILENAME}"
+        assembly_prompt = (
+            "Concatenate the six five-second editorial animatic clips in shot order."
+        )
+        assembly_job_id = database.create_job(
+            project_id=project_id,
+            shot_id=None,
+            kind="assembly",
+            provider="local",
+            model="ffmpeg",
+            payload={
+                "recordedRehearsal": True,
+                "source": "local-editorial-animatic",
+                "clipCount": len(RECORDED_FRAMES),
+            },
+            prompt=assembly_prompt,
+            prompt_hash=prompt_hash(assembly_prompt),
+            parameters={"resolution": "1280x720", "fps": 30, "audio": False},
+        )
+        database.update_job(
+            assembly_job_id,
+            status=JobStatus.COMPLETED,
+            started_at=completed_at,
+            completed_at=completed_at,
+            output_url=final_url,
+            usage_json={"source": "local-ffmpeg-assembly", "paidCalls": 0},
+        )
+        database.create_asset(
+            project_id=project_id,
+            shot_id=None,
+            kind="final",
+            local_path=str(final_output),
+            local_url=final_url,
+            prompt_hash=prompt_hash(assembly_prompt),
+            sha256=hashlib.sha256(final_output.read_bytes()).hexdigest(),
+            metadata={
+                "source": "local-editorial-animatic",
+                "model": "ffmpeg",
+                "editorialOnly": True,
+                "clipCount": len(RECORDED_FRAMES),
+                "probe": probe_media(final_output, settings.ffprobe_binary),
+            },
+        )
+
+        database.set_stage(project_id, ProductionStage.COMPLETED, force=True)
         return database.get_project(project_id)
 
     @app.get("/api/projects")

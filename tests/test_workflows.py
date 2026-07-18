@@ -161,14 +161,22 @@ def test_recorded_demo_is_instant_and_never_calls_paid_provider(tmp_path: Path) 
         assert response.status_code == 201
         project = response.json()
 
-        assert project["stage"] == "STORYBOARD_REVIEW"
+        assert project["stage"] == "COMPLETED"
         assert project["provider"] == "qwen"
         assert project["planApproved"] is True
         assert len(project["shots"]) == 6
-        assert len(project["jobs"]) == 6
+        assert len(project["jobs"]) == 13
         assert all(job["status"] == "COMPLETED" for job in project["jobs"])
         assert all(job["payload"]["recordedRehearsal"] is True for job in project["jobs"])
         assert all(job["promptHash"] == prompt_hash(job["prompt"]) for job in project["jobs"])
+        image_jobs = [job for job in project["jobs"] if job["kind"] == "image"]
+        video_jobs = [job for job in project["jobs"] if job["kind"] == "video"]
+        assembly_jobs = [job for job in project["jobs"] if job["kind"] == "assembly"]
+        assert len(image_jobs) == 6
+        assert len(video_jobs) == 6
+        assert len(assembly_jobs) == 1
+        assert all(job["provider"] == "local" for job in video_jobs + assembly_jobs)
+        assert all(job["estimatedCost"] is None for job in video_jobs + assembly_jobs)
         assert all(
             job["payload"]["recordedProviderPromptHash"]
             == next(
@@ -176,15 +184,29 @@ def test_recorded_demo_is_instant_and_never_calls_paid_provider(tmp_path: Path) 
                 for shot in project["shots"]
                 if shot["id"] == job["shotId"]
             )
-            for job in project["jobs"]
+            for job in image_jobs
         )
         assert all("FRAME_VISIBILITY_CONTRACT" in shot["imagePrompt"] for shot in project["shots"])
         assert all("ACTION:" in shot["motionPrompt"] for shot in project["shots"])
-        assert all(len(shot["assets"]) == 1 for shot in project["shots"])
+        assert all(shot["imageApproved"] is True for shot in project["shots"])
+        assert all(len(shot["assets"]) == 2 for shot in project["shots"])
         assert all(
-            Path(shot["assets"][0]["localPath"]).is_file()
+            {asset["kind"] for asset in shot["assets"]} == {"image", "video"}
             for shot in project["shots"]
         )
+        assert all(
+            Path(asset["localPath"]).is_file()
+            for shot in project["shots"]
+            for asset in shot["assets"]
+        )
+        assert len(project["finalAssets"]) == 1
+        assert Path(project["finalAssets"][0]["localPath"]).is_file()
+        assert project["finalAssets"][0]["metadata"]["editorialOnly"] is True
+
+        reopened = client.post("/api/recorded-demo", json={})
+        assert reopened.status_code == 201
+        assert reopened.json()["id"] == project["id"]
+        assert len(client.get("/api/projects").json()) == 1
 
         persisted = client.get(f"/api/projects/{project['id']}").json()
         assert persisted["title"] == "The Shadow — recorded Qwen rehearsal"

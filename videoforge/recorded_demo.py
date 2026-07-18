@@ -9,12 +9,16 @@ from .schemas import Narrative, ProductionPlan, ShotPlan, VisualBible
 RECORDED_DEMO_PROMPT = (
     "A woman enters her room in the dark and sees a shadow moving independently."
 )
+RECORDED_DEMO_TITLE = "The Shadow — recorded Qwen rehearsal"
+RECORDED_FINAL_FILENAME = "final-cut.mp4"
+RECORDED_ANIMATIC_MODEL = "editorial-animatic"
 
 
 @dataclass(frozen=True)
 class RecordedFrame:
     shot_id: str
     filename: str
+    video_filename: str
     model: str
     seed: int
     retry_count: int
@@ -25,6 +29,7 @@ RECORDED_FRAMES = (
     RecordedFrame(
         "shot-01",
         "shot-01.png",
+        "shot-01.mp4",
         "qwen-image-2.0",
         1777431065,
         0,
@@ -33,6 +38,7 @@ RECORDED_FRAMES = (
     RecordedFrame(
         "shot-02",
         "shot-02.png",
+        "shot-02.mp4",
         "qwen-image-2.0-pro",
         1777535794,
         1,
@@ -41,6 +47,7 @@ RECORDED_FRAMES = (
     RecordedFrame(
         "shot-03",
         "shot-03.png",
+        "shot-03.mp4",
         "qwen-image-2.0-pro",
         1777954710,
         5,
@@ -49,6 +56,7 @@ RECORDED_FRAMES = (
     RecordedFrame(
         "shot-04",
         "shot-04.png",
+        "shot-04.mp4",
         "qwen-image-2.0-pro",
         1777954710,
         5,
@@ -57,6 +65,7 @@ RECORDED_FRAMES = (
     RecordedFrame(
         "shot-05",
         "shot-05.png",
+        "shot-05.mp4",
         "qwen-image-2.0-pro",
         1777535794,
         1,
@@ -65,6 +74,7 @@ RECORDED_FRAMES = (
     RecordedFrame(
         "shot-06",
         "shot-06.png",
+        "shot-06.mp4",
         "qwen-image-2.0-pro",
         1777535794,
         1,
@@ -274,7 +284,7 @@ def create_recorded_demo_plan(project_id: str) -> ProductionPlan:
     ]
     return ProductionPlan(
         projectId=project_id,
-        title="The Shadow — recorded Qwen rehearsal",
+        title=RECORDED_DEMO_TITLE,
         logline=(
             "A woman enters her dark bedroom and sees a shadow moving independently—"
             "then realizes it is not hers."

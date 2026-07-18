@@ -1,8 +1,9 @@
 # Recording-ready demo narrative
 
 This route uses the six winning images from a completed live Qwen Cloud rehearsal. It
-loads locally, makes no provider call, spends no credits, and opens directly at the
-storyboard. Keep the server in normal Qwen mode so the production path remains real.
+adds clearly labeled local editorial animatics for the six shots and final cut, loads
+locally, makes no provider call, and spends no credits. Keep the server in normal Qwen
+mode so the separate live production path remains real.
 
 ## Before recording
 
@@ -47,7 +48,7 @@ Scroll through the six frames and narrate the cut:
 narrative job of each beat. Here the sequence contracts from room, to gaze, to evidence,
 then uses reflection and reaction to complete the reveal.”
 
-## 1:25–2:10 — Show the control system
+## 1:25–1:55 — Show the control system
 
 Open one prompt preview, then click **Edit prompt** to show the plan.
 
@@ -63,17 +64,21 @@ Point out:
 “The prompt is compiled like a call sheet. Shared facts remain fixed; only the shot's
 composition and physical beat change.”
 
-## 2:10–2:40 — Human checkpoints and production
+## 1:55–2:35 — Production and final cut
 
-Return to **Storyboard**. Approve one image if you want to demonstrate the checkpoint.
-Do not click **Regenerate image** or **Generate videos** during the recording unless you
-intend to make paid Qwen calls.
+Return to **Storyboard**, then click **View six shot clips**. Play one or two five-second
+clips to show the shot order and pacing, then click **View assembled preview** and play
+the 30-second cut. The page labels these as local editorial animatics: the visuals are
+the real Qwen keyframes with a restrained push-in, not claimed Wan character motion.
 
 “Opening this rehearsal made zero calls. In a new production, storyboard and video calls
 start only after explicit confirmation. Jobs run independently, are persisted in SQLite,
 and can be retried shot by shot without discarding successful frames.”
 
-## 2:40–3:00 — Close
+Do not click **Regenerate image** during the recording unless you intend to make a paid
+Qwen call.
+
+## 2:35–3:00 — Close
 
 “VideoForge makes Qwen behave like a production team: plan the story, lock the world,
 choose the lens for each beat, approve the evidence, and animate only what survived the
@@ -81,6 +86,7 @@ human checkpoint. It is a film workflow—not six unrelated generations.”
 
 ## Live fallback
 
-If the network is slow, remain in the recorded rehearsal. It is the exact saved output of
-the live run, not mock media. If you do demonstrate live generation, create a separate
-project so the recording-ready rehearsal stays unchanged.
+If the network is slow, remain in the recorded rehearsal. Its six keyframes are the exact
+saved output of the live run; its clips are local editorial animatics, not mock Qwen API
+responses. If you demonstrate live generation, create a separate project so the
+recording-ready rehearsal stays unchanged.
