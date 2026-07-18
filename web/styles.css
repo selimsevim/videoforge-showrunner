@@ -342,6 +342,27 @@ p,
   color: var(--ink);
 }
 
+.demo-narrative {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 24px;
+  align-items: baseline;
+  margin: -28px 0 48px;
+}
+
+.demo-narrative span {
+  color: var(--stamp);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.demo-narrative p {
+  max-width: 68ch;
+  margin: 0;
+}
+
 .section-kicker {
   color: var(--ink);
   font-size: 10px;
@@ -1442,6 +1463,11 @@ body:has(.page-intro .status-pill.completed) .checkpoint::after {
 
   .page-intro {
     display: block;
+  }
+
+  .demo-narrative {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .page-intro .status-pill,

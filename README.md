@@ -2,24 +2,24 @@
 
 VideoForge is an agentic short-film production workspace built for **Track 2: AI Showrunner** in the Global AI Hackathon Series with Qwen Cloud.
 
-A filmmaker enters one story idea. VideoForge turns it into an editable narrative plan, an immutable character/environment bible, a three-shot storyboard, approved Qwen keyframes, Wan 2.7 animations, and an optional FFmpeg final preview—with every prompt, seed, model, job, retry, cost estimate, and continuity decision recorded.
+A filmmaker enters one story idea. VideoForge turns it into an editable narrative plan, an immutable character/environment bible, a six-shot storyboard, approved Qwen keyframes, Wan 2.7 animations, and an optional FFmpeg final preview—with every prompt, seed, model, job, retry, cost estimate, and continuity decision recorded.
 
 The core innovation is simple:
 
 > VideoForge converts open-ended video generation into a constrained, inspectable film-production workflow. It freezes identity, set design, lighting, and camera language in approved storyboard images before asking Wan to generate motion.
 
-![VideoForge storyboard workspace](public/demo-assets/s02.png)
+![VideoForge storyboard workspace](public/demo-assets/shadow-rehearsal/shot-04.png)
 
 ## The problem
 
-Independent text-to-video calls repeatedly reinterpret the actor, wardrobe, set, prop, palette, and lens language. More prompting does not create a shared visual memory; it creates three separate guesses.
+Independent text-to-video calls repeatedly reinterpret the actor, wardrobe, set, prop, palette, and lens language. More prompting does not create a shared visual memory; it creates six separate guesses.
 
 VideoForge treats Qwen Cloud as a showrunner, not a clip vending machine:
 
-1. Qwen plans a story achievable in three visual beats.
+1. Qwen plans a story achievable in six visual beats.
 2. A Visual Director writes one immutable bible.
 3. A Prompt Compiler injects that exact bible into every image prompt.
-4. The user approves all three Qwen storyboard images.
+4. The user approves all six Qwen storyboard images.
 5. Wan receives each approved image as its first frame plus a motion-only prompt.
 6. FFmpeg normalizes and assembles the verified clips without hiding individual outputs.
 
@@ -28,7 +28,7 @@ The original successful six-call experiment remains intact in [`qwen_multishot_t
 ## Main features
 
 - Five-stage workspace: **Concept → Plan → Storyboard → Production → Final Cut**
-- Editable story, visual bible, three-beat shot plan, image deltas, motion, durations, and seeds
+- Editable story, visual bible, six-beat shot plan, image deltas, motion, durations, and seeds
 - Byte-identical shared-bible reuse across compiled image prompts
 - Structured Pydantic validation before any media request
 - Human approval gates before image and video generation
@@ -131,11 +131,11 @@ npm run smoke:mock
 
 ## Demo
 
-Use the prefilled concept or enter a new prompt, then click **Generate production plan**. The recording-ready example is:
+For an instant presentation, click **Open recorded Qwen demo** on the Concept screen. It loads the six winning frames, visual bible, shot plan, image prompts, motion prompts, seeds, retries, and generation ledger from a completed live Qwen Cloud rehearsal. It makes no provider call and opens directly at Storyboard Review.
 
-> A woman finds a Polaroid photograph of herself sleeping in her bedroom, but she lives alone.
+> A woman enters her room in the dark and sees a shadow moving independently.
 
-Qwen turns that premise into a dynamic six-shot plan. Review the visual bible and framing choices, approve the paid keyframe call, then approve the resulting frames before Wan animation.
+The sequence moves from a wide room master to her eyeline, an actor-free shadow detail, a tight TV over-shoulder, a reaction close-up, and a final reflection insert. The order is story-driven rather than a fixed shot-size template. To demonstrate the fully live path instead, enter a new prompt and click **Generate production plan**; paid media remains behind explicit confirmation.
 
 Follow [`docs/demo-script.md`](docs/demo-script.md) for a three-minute hackathon presentation.
 
@@ -173,6 +173,7 @@ Production runs one application worker because the local job executor is process
 
 | Route | Purpose |
 |---|---|
+| `POST /api/recorded-demo` | Load the completed six-shot Qwen rehearsal without provider calls |
 | `POST /api/projects` | Create a draft |
 | `POST /api/projects/:id/plan` | Create a structured plan |
 | `PATCH /api/projects/:id/plan` | Validate, repair, and save edits |
